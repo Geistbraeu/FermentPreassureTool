@@ -340,7 +340,8 @@ void sendDataToBrewfather(float voltage, float pressure) {
     jsonBody += "\"name\":\"" + deviceName + "\",";
     jsonBody += "\"pressure\":" + String(pressure, 2) + ",";
     jsonBody += "\"pressure_unit\":\"PSI\",";
-    jsonBody += "\"battery\":" + String(voltage, 2);
+    jsonBody += "\"battery\":" + String(voltage, 2) + ",";
+    jsonBody += "\"comment\":\"Voltage: " + String(voltage, 2) + "V\"";
     jsonBody += "}";
     
     int contentLength = jsonBody.length();
