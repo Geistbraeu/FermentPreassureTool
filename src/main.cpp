@@ -344,6 +344,8 @@ void sendDataToBrewfather(float voltage, float pressure) {
     jsonBody += "\"comment\":\"Voltage: " + String(voltage, 2) + "V\"";
     jsonBody += "}";
     
+    Serial.println("[Brewfather] Sending JSON: " + jsonBody);
+    
     int contentLength = jsonBody.length();
 
     String httpRequest;
