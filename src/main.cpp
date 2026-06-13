@@ -11,6 +11,7 @@
 #define SCREEN_HEIGHT 64
 #define OLED_RESET    -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+bool isOledConnected = false;
 
 // Настройки Wi-Fi
 const char* ssid = "Ghost";
@@ -61,16 +62,17 @@ void setup() {
   esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, 1100, &adc_chars);
 
   // Инициализация OLED
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
+  if(display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    isOledConnected = true;
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println("Connecting...");
+    display.display();
+  } else {
+    Serial.println(F("SSD1306 allocation failed (no OLED connected)"));
   }
-  display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE);
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.println("Connecting...");
-  display.display();
 
   // Создаем мьютекс для защиты общих данных
   dataMutex = xSemaphoreCreateMutex();
@@ -237,6 +239,8 @@ void networkTask(void *pvParameters) {
 }
 
 void updateDisplay(String ipStatus, float voltage, float pressureBar) {
+  if (!isOledConnected) return;
+  
   display.clearDisplay();
 
   // 1. Желтая зона (верхние 16 пикселей)
