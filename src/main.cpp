@@ -87,6 +87,12 @@ void sensorTask(void *pvParameters) {
   const int numSamples = 5;
   int samples[numSamples];
 
+  // Коэффициенты адаптивного фильтра (EMA)
+  const float alpha = 0.03;            // Степень сглаживания при медленных изменениях
+  const float stepThresholdPsi = 5.0;  // Порог резкого изменения давления (в PSI)
+  static float filteredVoltage = -1.0; // Хранилище отфильтрованного вольтажа
+  static float filteredPressure = -1.0;// Хранилище отфильтрованного давления
+
   for (;;) {
     // 1. Сбор данных для медианного фильтра
     for (int i = 0; i < numSamples; i++) {
@@ -120,10 +126,31 @@ void sensorTask(void *pvParameters) {
       p = (vSensor - 0.5) * 100.0 / (4.5 - 0.5); 
     }
 
+    // Применение адаптивного фильтра EMA
+    if (filteredVoltage < 0) {
+      // Инициализация при первом проходе
+      filteredVoltage = vSensor;
+      filteredPressure = p;
+    } else {
+      // Вычисляем абсолютное изменение давления
+      float diffPsi = abs(p - filteredPressure);
+
+      if (diffPsi > stepThresholdPsi) {
+        // Резкое изменение давления! Сбрасываем фильтр на новые мгновенные значения
+        filteredVoltage = vSensor;
+        filteredPressure = p;
+        Serial.printf("[Сенсор] Резкий скачок давления! Разница: %.2f PSI. Фильтр сброшен.\n", diffPsi);
+      } else {
+        // Медленное изменение (шум АЦП). Плавно фильтруем
+        filteredVoltage = alpha * vSensor + (1.0 - alpha) * filteredVoltage;
+        filteredPressure = alpha * p + (1.0 - alpha) * filteredPressure;
+      }
+    }
+
     // 4. Сохранение в общие переменные с блокировкой мьютекса
     if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-      currentVoltage = vSensor;
-      currentPressure = p;
+      currentVoltage = filteredVoltage;
+      currentPressure = filteredPressure;
       isDataReady = true; // Данные считаны хотя бы один раз
       xSemaphoreGive(dataMutex);
     }
@@ -199,7 +226,7 @@ void sendDataToThingSpeak(float voltage, float pressure) {
     Serial.print("V, P: "); Serial.print(pressure); Serial.println(" PSI");
 
     String url = "/update?api_key=" + tsApiKey + 
-                 "&field1=" + String(voltage, 2) + 
+                 "&field1=" + String(voltage, 3) + 
                  "&field2=" + String(pressure, 2);
 
     String httpRequest;
