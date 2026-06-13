@@ -47,7 +47,7 @@ esp_adc_cal_characteristics_t adc_chars;
 
 // Прототипы функций
 void setupWiFi();
-void sendDataToThingSpeak(float voltage, float pressure);
+void sendDataToThingSpeak(float voltage, float pressure, float pressureBar);
 void sendDataToBrewfather(float voltage, float pressure);
 void updateDisplay(String ipStatus, float voltage, float pressureBar);
 void sensorTask(void *pvParameters);
@@ -223,7 +223,7 @@ void networkTask(void *pvParameters) {
         // Отправка в ThingSpeak
         if (currentMillis - lastThingSpeakTime >= tsInterval) {
             lastThingSpeakTime = currentMillis;
-            sendDataToThingSpeak(vLocal, pLocal);
+            sendDataToThingSpeak(vLocal, pLocal, pLocal * 0.0689476);
         }
 
         // Отправка в Brewfather
@@ -296,16 +296,18 @@ void setupWiFi() {
   Serial.println("[Wi-Fi] Подключено успешно!");
 }
 
-void sendDataToThingSpeak(float voltage, float pressure) {
+void sendDataToThingSpeak(float voltage, float pressure, float pressureBar) {
   client.stop();
   Serial.println("\n[ThingSpeak] Подключение к серверу (HTTPS)...");
   if (client.connect(tsServer, 443)) {
     Serial.print("[ThingSpeak] Отправка -> V: "); Serial.print(voltage);
-    Serial.print("V, P: "); Serial.print(pressure); Serial.println(" PSI");
+    Serial.print("V, P(PSI): "); Serial.print(pressure);
+    Serial.print(", P(Bar): "); Serial.print(pressureBar); Serial.println(" Bar");
 
     String url = "/update?api_key=" + tsApiKey + 
                  "&field1=" + String(voltage, 3) + 
-                 "&field2=" + String(pressure, 2);
+                 "&field2=" + String(pressure, 2) +
+                 "&field3=" + String(pressureBar, 2);
 
     String httpRequest;
     httpRequest.reserve(160);
