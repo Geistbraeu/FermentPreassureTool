@@ -4,11 +4,11 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
-String getHtml(float p, float v, bool mOverride, bool mOn, unsigned long mStart, float maxPressureThreshold, float hysteresis, unsigned long sensorInterval, unsigned long tsIntervalSeconds, unsigned long bfIntervalMinutes, float offsetVoltage) {
+String getHtml(float pPsi, float pBar, float v, bool mOverride, bool mOn, unsigned long mStart, float maxPressureThreshold, int pressureUnit, float hysteresis, unsigned long sensorInterval, unsigned long tsIntervalSeconds, unsigned long bfIntervalMinutes, float offsetVoltage) {
     String html = "<html><body>";
     html += "<h1>Pressure Sensor (" + String(HOSTNAME) + ")</h1>";
     html += "<p>IP Address: " + WiFi.localIP().toString() + "</p>";
-    html += "<p>Pressure: " + String(p, 2) + " PSI</p>";
+    html += "<p>Pressure: " + String(pPsi, 2) + " PSI (" + String(pBar, 2) + " Bar)</p>";
     html += "<p>Valve: <span id='valveStatus'>" + String(mOverride ? (mOn ? "Manual Open" : "Manual Closed") : "Auto") + "</span></p>";
     
     long remaining = 0;
@@ -45,6 +45,9 @@ String getHtml(float p, float v, bool mOverride, bool mOn, unsigned long mStart,
     html += "<p>Settings:</p>";
     html += "<form action='/api' method='POST'>";
     html += "Max Pressure Threshold (PSI): <input type='number' step='0.1' name='pressure' value='" + String(maxPressureThreshold, 1) + "'> <input type='submit' value='Set'><br>";
+    html += "</form>";
+    html += "<form action='/api' method='POST'>";
+    html += "Pressure Unit: <select name='pUnit'><option value='0'" + String(pressureUnit == 0 ? " selected" : "") + ">PSI</option><option value='1'" + String(pressureUnit == 1 ? " selected" : "") + ">Bar</option></select> <input type='submit' value='Set'><br>";
     html += "</form>";
     html += "<form action='/api' method='POST'>";
     html += "Hysteresis (PSI): <input type='number' step='0.1' name='hysteresis' value='" + String(hysteresis, 1) + "'> <input type='submit' value='Set'><br>";

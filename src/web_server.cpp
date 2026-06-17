@@ -10,6 +10,7 @@ extern float currentVoltage;
 extern float currentPressure;
 extern SemaphoreHandle_t dataMutex;
 extern float maxPressureThreshold;
+extern int pressureUnit;
 extern float hysteresis;
 extern unsigned long sensorInterval;
 extern unsigned long tsIntervalSeconds;
@@ -34,7 +35,7 @@ void handleRoot() {
         xSemaphoreGive(dataMutex);
     }
     
-    server.send(200, "text/html", getHtml(p, v, mOverride, mOn, mStart, maxPressureThreshold, hysteresis, sensorInterval, tsIntervalSeconds, bfIntervalMinutes, offsetVoltage));
+    server.send(200, "text/html", getHtml(p, p * 0.0689476, v, mOverride, mOn, mStart, maxPressureThreshold, pressureUnit, hysteresis, sensorInterval, tsIntervalSeconds, bfIntervalMinutes, offsetVoltage));
 }
 
 void handleApi() {
@@ -59,6 +60,7 @@ void handleApi() {
         String json = "{\"pressure\":" + String(p, 2) + 
                       ",\"voltage\":" + String(v, 2) + 
                       ",\"maxPressure\":" + String(maxPressureThreshold, 2) + 
+                      ",\"pressureUnit\":" + String(pressureUnit) +
                       ",\"offsetVoltage\":" + String(offsetVoltage, 3) + 
                       ",\"manualOverride\":" + (mOverride ? "true" : "false") +
                       ",\"manualOn\":" + (mOn ? "true" : "false") +
@@ -80,6 +82,13 @@ void handleApi() {
             Preferences prefs;
             prefs.begin("config", false);
             prefs.putFloat("maxPressure", maxPressureThreshold);
+            prefs.end();
+        }
+        if (server.hasArg("pUnit")) {
+            pressureUnit = server.arg("pUnit").toInt();
+            Preferences prefs;
+            prefs.begin("config", false);
+            prefs.putInt("pUnit", pressureUnit);
             prefs.end();
         }
         if (server.hasArg("hysteresis")) {

@@ -49,6 +49,7 @@ float currentVoltage = 0.0;
 float currentPressure = 0.0;
 float currentTemp = 0.0;
 float maxPressureThreshold = 14.0; // Порог давления
+int pressureUnit = 0; // 0 = PSI, 1 = Bar
 float hysteresis = 0.5;
 unsigned long sensorInterval = 200;
 unsigned long tsIntervalSeconds = 120;
@@ -116,6 +117,7 @@ void setup() {
   Preferences prefs;
   prefs.begin("config", true);
   maxPressureThreshold = prefs.getFloat("maxPressure", 14.0);
+  pressureUnit = prefs.getInt("pUnit", 0);
   hysteresis = prefs.getFloat("hysteresis", 0.5);
   sensorInterval = prefs.getULong("sInterval", 200);
   tsIntervalSeconds = prefs.getULong("tsInterval", 120);
@@ -327,7 +329,12 @@ void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp
   display.setCursor(0, 0);
   display.print(HOSTNAME);
   
-  String maxPStr = String(maxPressureThreshold, 1) + " PSI";
+  float pDisplay = (pressureUnit == 0) ? (pressureBar / 0.0689476) : pressureBar;
+  String unitStr = (pressureUnit == 0) ? "PSI" : "Bar";
+  
+  float maxPVal = (pressureUnit == 0) ? maxPressureThreshold : (maxPressureThreshold * 0.0689476);
+  String maxPStr = String(maxPVal, 1) + " " + unitStr;
+  
   int16_t x1, y1; uint16_t w, h;
   display.getTextBounds(maxPStr, 0, 0, &x1, &y1, &w, &h);
   display.setCursor(128 - w, 0);
@@ -339,17 +346,18 @@ void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp
   // Средние 2/4 (y=16-48) - Давление
   display.setTextSize(3);
   display.setCursor(5, 20);
-  if (pressureBar < 10.0) {
-    display.print(pressureBar, 2);
-  } else if (pressureBar < 100.0) {
-    display.print(pressureBar, 1);
+  
+  if (pDisplay < 10.0) {
+    display.print(pDisplay, 2);
+  } else if (pDisplay < 100.0) {
+    display.print(pDisplay, 1);
   } else {
-    display.print((int)pressureBar);
+    display.print((int)pDisplay);
   }
 
   display.setTextSize(2);
   display.setCursor(85, 28);
-  display.print("Bar");
+  display.print(unitStr);
 
   // Нижняя зона (y=49-63) - IP и Вольтаж
   display.setTextSize(1);
