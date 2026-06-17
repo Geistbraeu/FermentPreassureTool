@@ -14,7 +14,6 @@
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET    -1
-#define HOSTNAME      "ferment-01"
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 bool isOledConnected = false;
 
@@ -92,9 +91,14 @@ void setup() {
   setupWiFi();
 
   // Инициализация mDNS
-  if (MDNS.begin(HOSTNAME)) {
-    Serial.println("mDNS responder started");
+  if (!MDNS.begin(HOSTNAME)) {
+    Serial.println("mDNS ERROR");
+  } else {
+    Serial.println("mDNS responder started: " + String(HOSTNAME) + ".local");
+    MDNS.addService("http", "tcp", 80);
   }
+ 
+ 
 
   // Инициализация MAX31865
   // tempSensor.begin(MAX31865_2WIRE);  // Настройка для 3-проводного датчика, измените если 2 или 4
@@ -342,13 +346,14 @@ void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp
 void setupWiFi() {
   Serial.print("Подключение к Wi-Fi: ");
   Serial.println(ssid);
-  
+  WiFi.setHostname(HOSTNAME);
   WiFi.begin(ssid, pass);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+  Serial.println(WiFi.getHostname());
   Serial.println("[Wi-Fi] Подключено успешно!");
 }
 

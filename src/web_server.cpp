@@ -1,5 +1,7 @@
 #include <WebServer.h>
 #include <Arduino.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
 #include <Preferences.h>
 #include "web_server.h"
 
@@ -20,7 +22,8 @@ void handleRoot() {
     }
     
     String html = "<html><body>";
-    html += "<h1>Pressure Sensor</h1>";
+    html += "<h1>Pressure Sensor (" + String(HOSTNAME) + ")</h1>";
+    html += "<p>IP Address: " + WiFi.localIP().toString() + "</p>";
     html += "<p>Pressure: " + String(p, 2) + " PSI</p>";
     html += "<p>Voltage: " + String(v, 2) + " V</p>";
     html += "<p>Max Pressure Threshold: " + String(maxPressureThreshold, 2) + " PSI</p>";
