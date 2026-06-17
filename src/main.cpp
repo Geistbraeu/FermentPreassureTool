@@ -317,24 +317,18 @@ void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp
   
   display.clearDisplay();
 
-  // 1. Желтая зона (верхние 16 пикселей)
+  // 1. Верхняя зона (y=0-15) - Имя и Max Pressure
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.print(HOSTNAME);
   
-  if (ipStatus == "Connecting...") {
-      display.setCursor(0, 0);
-      display.print(ipStatus);
-  } else {
-      display.setCursor(0, 0);
-      display.print(ipStatus);
-      
-      String voltStr = String(voltage, 2) + " V";
-      int16_t x1, y1;
-      uint16_t w, h;
-      display.getTextBounds(voltStr, 0, 0, &x1, &y1, &w, &h);
-      display.setCursor(128 - w, 0);
-      display.print(voltStr);
-  }
+  String maxPStr = String(maxPressureThreshold, 1) + " PSI";
+  int16_t x1, y1; uint16_t w, h;
+  display.getTextBounds(maxPStr, 0, 0, &x1, &y1, &w, &h);
+  display.setCursor(128 - w, 0);
+  display.print(maxPStr);
+  
   display.drawLine(0, 15, 127, 15, SSD1306_WHITE);
 
   // 2. Синяя зона (нижние 48 пикселей)
@@ -353,16 +347,15 @@ void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp
   display.setCursor(85, 28);
   display.print("Bar");
 
-  // Нижняя 1/4 (y=49-63) - Температура
-  // display.setTextSize(1);
-  // display.setCursor(5, 52);
-  // display.print("Temp: ");
-  // if (isTempSensorConnected) {
-  //   display.print(temp, 1);
-  //   display.print(" C");
-  // } else {
-  //   display.print("Error");
-  // }
+  // Нижняя зона (y=49-63) - IP и Вольтаж
+  display.setTextSize(1);
+  display.setCursor(0, 52);
+  display.print(ipStatus);
+  
+  String voltStr = String(voltage, 2) + " V";
+  display.getTextBounds(voltStr, 0, 0, &x1, &y1, &w, &h);
+  display.setCursor(128 - w, 52);
+  display.print(voltStr);
 
   display.display();
 }
