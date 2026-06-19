@@ -50,6 +50,13 @@ public:
     void setHttpPath(const String& val);
     void setHttpBodyTemplate(const String& val);
     void setHttpIntervalSeconds(unsigned long val);
+
+private:
+    void saveFloat(const String& key, float value);
+    void saveInt(const String& key, int value);
+    void saveULong(const String& key, unsigned long value);
+    void saveBool(const String& key, bool value);
+    void saveString(const String& key, const String& value);
 };
 
 extern Settings settings;

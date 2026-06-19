@@ -4,6 +4,41 @@
 Settings settings;
 WifiSettings wifiSettings;
 
+void Settings::saveFloat(const String& key, float value) {
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putFloat(key, value);
+    prefs.end();
+}
+
+void Settings::saveInt(const String& key, int value) {
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putInt(key, value);
+    prefs.end();
+}
+
+void Settings::saveULong(const String& key, unsigned long value) {
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putULong(key, value);
+    prefs.end();
+}
+
+void Settings::saveBool(const String& key, bool value) {
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putBool(key, value);
+    prefs.end();
+}
+
+void Settings::saveString(const String& key, const String& value) {
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putString(key, value);
+    prefs.end();
+}
+
 void Settings::load() {
     Preferences prefs;
     prefs.begin("config", true);
@@ -30,146 +65,92 @@ void Settings::load() {
 
 void Settings::setMaxPressureThreshold(float val) {
     maxPressureThreshold = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putFloat("maxPressure", val);
-    prefs.end();
+    saveFloat("maxPressure", val);
 }
 
 void Settings::setPressureUnit(int val) {
     pressureUnit = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putInt("pUnit", val);
-    prefs.end();
+    saveInt("pUnit", val);
 }
 
 void Settings::setHysteresis(float val) {
     hysteresis = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putFloat("hysteresis", val);
-    prefs.end();
+    saveFloat("hysteresis", val);
 }
 
 void Settings::setSensorInterval(unsigned long val) {
     sensorInterval = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putULong("sInterval", val);
-    prefs.end();
+    saveULong("sInterval", val);
 }
 
 void Settings::setTsIntervalSeconds(unsigned long val) {
     tsIntervalSeconds = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putULong("tsInterval", val);
-    prefs.end();
+    saveULong("tsInterval", val);
 }
 
 void Settings::setBfIntervalMinutes(unsigned long val) {
     bfIntervalMinutes = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putULong("bfInterval", val);
-    prefs.end();
+    saveULong("bfInterval", val);
 }
 
 void Settings::setOffsetVoltage(float val) {
     offsetVoltage = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putFloat("offsetVoltage", val);
-    prefs.end();
+    saveFloat("offsetVoltage", val);
 }
 
 void Settings::setUseTempSensor(bool val) {
     useTempSensor = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putBool("useTemp", val);
-    prefs.end();
+    saveBool("useTemp", val);
 }
 
 void Settings::setTsApiKey(const String& val) {
     tsApiKey = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putString("tsApiKey", val);
-    prefs.end();
+    saveString("tsApiKey", val);
 }
 
 void Settings::setBfStreamId(const String& val) {
     bfStreamId = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putString("bfStreamId", val);
-    prefs.end();
+    saveString("bfStreamId", val);
 }
 
 void Settings::setBfDeviceName(const String& val) {
     bfDeviceName = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putString("bfDevName", val);
-    prefs.end();
+    saveString("bfDevName", val);
 }
 
 void Settings::setTsEnabled(bool val) {
     tsEnabled = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putBool("tsEnabled", val);
-    prefs.end();
+    saveBool("tsEnabled", val);
 }
 
 void Settings::setBfEnabled(bool val) {
     bfEnabled = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putBool("bfEnabled", val);
-    prefs.end();
+    saveBool("bfEnabled", val);
 }
 
 void Settings::setHttpEnabled(bool val) {
     httpEnabled = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putBool("httpEnabled", val);
-    prefs.end();
+    saveBool("httpEnabled", val);
 }
 
 void Settings::setHttpServer(const String& val) {
     httpServer = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putString("httpServer", val);
-    prefs.end();
+    saveString("httpServer", val);
 }
 
 void Settings::setHttpPath(const String& val) {
     httpPath = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putString("httpPath", val);
-    prefs.end();
+    saveString("httpPath", val);
 }
 
 void Settings::setHttpBodyTemplate(const String& val) {
     httpBodyTemplate = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putString("httpBody", val);
-    prefs.end();
+    saveString("httpBody", val);
 }
 
 void Settings::setHttpIntervalSeconds(unsigned long val) {
     httpIntervalSeconds = val;
-    Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putULong("httpInterval", val);
-    prefs.end();
+    saveULong("httpInterval", val);
 }
 
 void WifiSettings::load() {
