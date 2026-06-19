@@ -1,0 +1,36 @@
+CompileFlags:
+  # Убираем флаги, которые clangd/Clang не понимает (Xtensa GCC-специфичные)
+  Remove:
+    - -mlongcalls
+    - -mlong-calls
+    - -mfix-esp32-psram-cache-issue
+    - -mfix-esp32-psram-cache-strategy=*
+    - -fno-tree-switch-conversion
+    - -fstrict-volatile-bitfields
+    - -fno-jump-tables
+    - -freorder-blocks
+    - -Wno-frame-address
+    - -Wwrite-strings
+    - -fstack-protector
+    - --specs=*
+    - -Wno-error=*
+    - -Wno-unused-parameter
+    - -Wno-sign-compare
+
+Diagnostics:
+  # Не показывать ошибки о "неизвестных" заголовках ESP32/FreeRTOS
+  MissingIncludes: None
+  UnusedIncludes: None
+  # Подавить ложные предупреждения clangd для Arduino/ESP32 кода
+  Suppress:
+    - pp_including_mainfile_in_preamble
+    - err_pp_file_not_found
+    # Ложная ошибка clangd: не может разрешить THandlerFunction (std::function<void()>)
+    # из-за особенностей разбора ESP32 Arduino заголовков через Xtensa GCC toolchain
+    - ovl_no_viable_member_function_in_call
+
+InlayHints:
+  Enabled: No
+
+Index:
+  Background: Build

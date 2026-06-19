@@ -15,6 +15,11 @@ void Settings::load() {
     bfIntervalMinutes = prefs.getULong("bfInterval", 15);
     offsetVoltage = prefs.getFloat("offsetVoltage", 0.515);
     useTempSensor = prefs.getBool("useTemp", true);
+    tsApiKey = prefs.getString("tsApiKey", "DEXTOPQCD39G16GW");
+    bfStreamId = prefs.getString("bfStreamId", "b8wwXJ3xdW3B8h");
+    bfDeviceName = prefs.getString("bfDevName", "Pressure_Sensor");
+    tsEnabled = prefs.getBool("tsEnabled", true);
+    bfEnabled = prefs.getBool("bfEnabled", true);
     prefs.end();
 }
 
@@ -79,6 +84,46 @@ void Settings::setUseTempSensor(bool val) {
     Preferences prefs;
     prefs.begin("config", false);
     prefs.putBool("useTemp", val);
+    prefs.end();
+}
+
+void Settings::setTsApiKey(const String& val) {
+    tsApiKey = val;
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putString("tsApiKey", val);
+    prefs.end();
+}
+
+void Settings::setBfStreamId(const String& val) {
+    bfStreamId = val;
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putString("bfStreamId", val);
+    prefs.end();
+}
+
+void Settings::setBfDeviceName(const String& val) {
+    bfDeviceName = val;
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putString("bfDevName", val);
+    prefs.end();
+}
+
+void Settings::setTsEnabled(bool val) {
+    tsEnabled = val;
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putBool("tsEnabled", val);
+    prefs.end();
+}
+
+void Settings::setBfEnabled(bool val) {
+    bfEnabled = val;
+    Preferences prefs;
+    prefs.begin("config", false);
+    prefs.putBool("bfEnabled", val);
     prefs.end();
 }
 

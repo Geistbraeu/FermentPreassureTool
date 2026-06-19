@@ -1,0 +1,18 @@
+{
+    "// Отключить Microsoft C/C++ IntelliSense, использовать clangd": "",
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.autocomplete": "disabled",
+    "C_Cpp.errorSquiggles": "disabled",
+    "C_Cpp.default.configurationProvider": "llvm-vs-code-extensions.vscode-clangd",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/compile_commands.json",
+
+    "// clangd: использовать compile_commands.json из корня проекта": "",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}",
+        "--background-index",
+        "--clang-tidy=false",
+        "--header-insertion=never",
+        "--query-driver=C:/Users/GhostDemon/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-g++",
+        "--fallback-style=none"
+    ]
+}

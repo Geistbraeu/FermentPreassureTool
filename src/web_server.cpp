@@ -30,7 +30,12 @@ void handleRoot() {
         xSemaphoreGive(dataMutex);
     }
     
-    server.send(200, "text/html", getHtml(p, p * 0.0689476, v, mOverride, mOn, mStart, settings.maxPressureThreshold, settings.pressureUnit, settings.hysteresis, settings.sensorInterval, settings.tsIntervalSeconds, settings.bfIntervalMinutes, settings.offsetVoltage, settings.useTempSensor));
+    server.send(200, "text/html", getHtml(p, p * 0.0689476, v, mOverride, mOn, mStart,
+        settings.maxPressureThreshold, settings.pressureUnit, settings.hysteresis,
+        settings.sensorInterval, settings.tsIntervalSeconds, settings.bfIntervalMinutes,
+        settings.offsetVoltage, settings.useTempSensor,
+        settings.tsApiKey, settings.bfStreamId, settings.bfDeviceName,
+        settings.tsEnabled, settings.bfEnabled));
 }
 
 void handleApi() {
@@ -100,6 +105,21 @@ void handleApi() {
         }
         if (server.hasArg("useTemp")) {
             settings.setUseTempSensor(server.arg("useTemp").toInt() == 1);
+        }
+        if (server.hasArg("tsApiKey")) {
+            settings.setTsApiKey(server.arg("tsApiKey"));
+        }
+        if (server.hasArg("bfStreamId")) {
+            settings.setBfStreamId(server.arg("bfStreamId"));
+        }
+        if (server.hasArg("bfDeviceName")) {
+            settings.setBfDeviceName(server.arg("bfDeviceName"));
+        }
+        if (server.hasArg("tsEnabled")) {
+            settings.setTsEnabled(server.arg("tsEnabled").toInt() == 1);
+        }
+        if (server.hasArg("bfEnabled")) {
+            settings.setBfEnabled(server.arg("bfEnabled").toInt() == 1);
         }
         server.sendHeader("Location", "/", true);
         server.send(303, "text/plain", "OK");

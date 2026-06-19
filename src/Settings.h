@@ -14,6 +14,15 @@ public:
     float offsetVoltage;
     bool useTempSensor;
 
+    // Cloud credentials
+    String tsApiKey;
+    String bfStreamId;
+    String bfDeviceName;
+
+    // Cloud enable flags
+    bool tsEnabled;
+    bool bfEnabled;
+
     void load();
     
     void setMaxPressureThreshold(float val);
@@ -24,6 +33,11 @@ public:
     void setBfIntervalMinutes(unsigned long val);
     void setOffsetVoltage(float val);
     void setUseTempSensor(bool val);
+    void setTsApiKey(const String& val);
+    void setBfStreamId(const String& val);
+    void setBfDeviceName(const String& val);
+    void setTsEnabled(bool val);
+    void setBfEnabled(bool val);
 };
 
 extern Settings settings;

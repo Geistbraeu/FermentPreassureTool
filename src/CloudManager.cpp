@@ -11,11 +11,7 @@ static unsigned long lastBrewfatherTime = 0;
 WiFiClientSecure client;
 
 const char* tsServer = "api.thingspeak.com";
-const String tsApiKey = "DEXTOPQCD39G16GW";
-
 const char* bfServer = "log.brewfather.net";
-const String bfStreamId = "b8wwXJ3xdW3B8h"; 
-const String deviceName = "Pressure_Sensor"; // Sensor name in Brewfather
 
 void initCloud() {
   client.setInsecure();
@@ -24,6 +20,7 @@ void initCloud() {
 }
 
 void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, float temp) {
+  if (!settings.tsEnabled) return;
   unsigned long currentMillis = millis();
   if (currentMillis - lastThingSpeakTime < (settings.tsIntervalSeconds * 1000)) {
     return;
@@ -42,7 +39,7 @@ void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, floa
       Serial.println(" Bar");
     }
 
-    String url = "/update?api_key=" + tsApiKey + 
+    String url = "/update?api_key=" + settings.tsApiKey + 
                  "&field1=" + String(voltage, 3) + 
                  "&field2=" + String(pressure, 2) +
                  "&field3=" + String(pressureBar, 2);
@@ -65,6 +62,7 @@ void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, floa
 }
 
 void sendDataToBrewfather(float voltage, float pressure, float temp) {
+  if (!settings.bfEnabled) return;
   unsigned long currentMillis = millis();
   if (currentMillis - lastBrewfatherTime < (settings.bfIntervalMinutes * 60000)) {
     return;
@@ -90,7 +88,7 @@ void sendDataToBrewfather(float voltage, float pressure, float temp) {
     String jsonBody;
     jsonBody.reserve(200);
     jsonBody += "{";
-    jsonBody += "\"name\":\"" + deviceName + "\",";
+    jsonBody += "\"name\":\"" + settings.bfDeviceName + "\",";
     jsonBody += "\"pressure\":" + String(pressure, 2) + ",";
     jsonBody += "\"pressure_unit\":\"PSI\",";
     if (settings.useTempSensor) {
@@ -111,7 +109,7 @@ void sendDataToBrewfather(float voltage, float pressure, float temp) {
 
     String httpRequest;
     httpRequest.reserve(300);
-    httpRequest += "POST /stream?id=" + bfStreamId + " HTTP/1.1\r\n";
+    httpRequest += "POST /stream?id=" + settings.bfStreamId + " HTTP/1.1\r\n";
     httpRequest += "Host: " + String(bfServer) + "\r\n";
     httpRequest += "Content-Type: application/json\r\n";
     httpRequest += "Content-Length: " + String(contentLength) + "\r\n";
