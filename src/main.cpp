@@ -166,12 +166,6 @@ void sensorTask(void *pvParameters) {
   const int numSamples = 5;
   int samples[numSamples];
 
-  // Коэффициенты адаптивного фильтра (EMA)
-  const float alpha = 0.03;            // Степень сглаживания при медленных изменениях
-  const float stepThresholdPsi = 5.0;  // Порог резкого изменения давления (в PSI)
-  static float filteredVoltage = -1.0; // Хранилище отфильтрованного вольтажа
-  static float filteredPressure = -1.0;// Хранилище отфильтрованного давления
-
   for (;;) {
     // 1. Сбор данных для медианного фильтра
     for (int i = 0; i < numSamples; i++) {
@@ -220,26 +214,10 @@ void sensorTask(void *pvParameters) {
     float t = 0.0;
     isTempSensorConnected = false;
 
-    // Применение адаптивного фильтра (для давления)
-    if (filteredVoltage < 0) {
-      filteredVoltage = vSensor;
-      filteredPressure = p;
-    } else {
-      float diffPsi = abs(p - filteredPressure);
-      if (diffPsi > stepThresholdPsi) {
-        filteredVoltage = vSensor;
-        filteredPressure = p;
-        Serial.printf("[Сенсор] Резкий скачок давления! Разница: %.2f PSI. Фильтр сброшен.\n", diffPsi);
-      } else {
-        filteredVoltage = alpha * vSensor + (1.0 - alpha) * filteredVoltage;
-        filteredPressure = alpha * p + (1.0 - alpha) * filteredPressure;
-      }
-    }
-
     // 5. Сохранение в общие переменные с блокировкой мьютекса
     if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-      currentVoltage = filteredVoltage;
-      currentPressure = filteredPressure;
+      currentVoltage = vSensor;
+      currentPressure = p;
       currentTemp = t; // Сохраняем температуру
       isDataReady = true;
 
@@ -251,9 +229,9 @@ void sensorTask(void *pvParameters) {
       if (manualOverride) {
           digitalWrite(SOLENOID_PIN, manualOn ? HIGH : LOW);
       } else {
-          if (filteredPressure > maxPressureThreshold) {
+          if (currentPressure > maxPressureThreshold) {
               digitalWrite(SOLENOID_PIN, HIGH);
-          } else if (filteredPressure < (maxPressureThreshold - hysteresis)) {
+          } else if (currentPressure < (maxPressureThreshold - hysteresis)) {
               digitalWrite(SOLENOID_PIN, LOW);
           }
       }
@@ -398,8 +376,7 @@ void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, floa
     String url = "/update?api_key=" + tsApiKey + 
                  "&field1=" + String(voltage, 3) + 
                  "&field2=" + String(pressure, 2) +
-                 "&field3=" + String(pressureBar, 2) +
-                 "&field4=" + String(temp, 2);
+                 "&field3=" + String(pressureBar, 2);
 
     String httpRequest;
     httpRequest.reserve(200);
