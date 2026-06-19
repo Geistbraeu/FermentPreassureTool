@@ -8,6 +8,7 @@
 #include <Adafruit_MAX31865.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
+#include "ConfigPortal.h"
 #include "web_server.h"
 
 // Настройки OLED
@@ -25,8 +26,6 @@ bool isOledConnected = false;
 Adafruit_MAX31865 tempSensor = Adafruit_MAX31865(MAX31865_CS_PIN, 23, 19, 18);
 #define RREF      430.0
 #define RNOMINAL  100.0
-const char* ssid = "Ghost";
-const char* pass = "ghostdemonde";
 
 // Настройки Облаков
 const char* tsServer = "api.thingspeak.com";
@@ -65,7 +64,6 @@ SemaphoreHandle_t dataMutex;
 esp_adc_cal_characteristics_t adc_chars;
 
 // Прототипы функций
-void setupWiFi();
 void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, float temp);
 void sendDataToBrewfather(float voltage, float pressure, float temp);
 void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp);
@@ -87,14 +85,14 @@ void setup() {
     display.setTextColor(SSD1306_WHITE);
     display.setTextSize(1);
     display.setCursor(0, 0);
-    display.println("Connecting...");
+    display.println("Starting...");
     display.display();
   } else {
     Serial.println(F("SSD1306 allocation failed (no OLED connected)"));
   }
 
-  // Инициализация Wi-Fi
-  setupWiFi();
+  // Инициализация Wi-Fi через ConfigPortal
+  ConfigPortal::begin();
 
   // Инициализация клапана
   pinMode(SOLENOID_PIN, OUTPUT);
@@ -256,7 +254,7 @@ void networkTask(void *pvParameters) {
 
     // Проверка подключения
     if (WiFi.status() != WL_CONNECTED) {
-      setupWiFi();
+      ConfigPortal::connect();
     }
 
     // Получаем копию данных и статус готовности
@@ -348,20 +346,6 @@ void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp
   display.print(voltStr);
 
   display.display();
-}
-
-void setupWiFi() {
-  Serial.print("Подключение к Wi-Fi: ");
-  Serial.println(ssid);
-  WiFi.setHostname(HOSTNAME);
-  WiFi.begin(ssid, pass);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println(WiFi.getHostname());
-  Serial.println("[Wi-Fi] Подключено успешно!");
 }
 
 void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, float temp) {
