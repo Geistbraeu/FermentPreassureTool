@@ -11,7 +11,8 @@ String getHtml(float pPsi, float pBar, float v, bool mOverride, bool mOn, unsign
                const String& tsApiKey, const String& bfStreamId, const String& bfDeviceName,
                bool tsEnabled, bool bfEnabled,
                bool httpEnabled, const String& httpServer, const String& httpPath,
-               const String& httpBodyTemplate, unsigned long httpIntervalSeconds) {
+               const String& httpBodyTemplate, unsigned long httpIntervalSeconds,
+               const String& deviceName) {
 
     long remaining = 0;
     if (mOverride) {
@@ -239,7 +240,7 @@ String getHtml(float pPsi, float pBar, float v, bool mOverride, bool mOn, unsign
     <div class="header-left">
       <h1>&#127866; Fermenter Control</h1>
       <p>)rawhtml";
-    html += String(HOSTNAME) + " &nbsp;&#183;&nbsp; " + WiFi.localIP().toString();
+    html += deviceName + " &nbsp;&#183;&nbsp; " + WiFi.localIP().toString();
     html += R"rawhtml(</p>
     </div>
   </div>
@@ -310,6 +311,18 @@ String getHtml(float pPsi, float pBar, float v, bool mOverride, bool mOn, unsign
           <div class="setting-row">
             <input type="number" step="0.1" name="pressure" value=")rawhtml";
     html += String(maxPressureThreshold, 1);
+    html += R"rawhtml(">
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Device Name</label>
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="text" name="devName" value=")rawhtml";
+    html += deviceName;
     html += R"rawhtml(">
             <button class="btn-set" type="submit">Set</button>
           </div>

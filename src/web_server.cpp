@@ -37,7 +37,8 @@ void handleRoot() {
         settings.tsApiKey, settings.bfStreamId, settings.bfDeviceName,
         settings.tsEnabled, settings.bfEnabled,
         settings.httpEnabled, settings.httpServer, settings.httpPath,
-        settings.httpBodyTemplate, settings.httpIntervalSeconds));
+        settings.httpBodyTemplate, settings.httpIntervalSeconds,
+        wifiSettings.devName));
 }
 
 void handleApi() {
@@ -82,6 +83,13 @@ void handleApi() {
         }
         if (server.hasArg("pressure")) {
             settings.setMaxPressureThreshold(server.arg("pressure").toFloat());
+        }
+        if (server.hasArg("devName")) {
+            String newDevName = server.arg("devName");
+            if (!newDevName.isEmpty()) {
+                wifiSettings.save(wifiSettings.ssid, wifiSettings.pass, newDevName);
+                WiFi.setHostname(newDevName.c_str());
+            }
         }
         if (server.hasArg("pUnit")) {
             settings.setPressureUnit(server.arg("pUnit").toInt());
