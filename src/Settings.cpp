@@ -10,9 +10,9 @@ bool Settings::saveFloat(const String& key, float value) {
     if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
         return false;
     }
-    esp_err_t err = prefs.putFloat(key.c_str(), value);
+    size_t written = prefs.putFloat(key.c_str(), value);
     prefs.end();
-    return err == ESP_OK;
+    return written > 0;
 }
 
 bool Settings::saveInt(const String& key, int value) {
@@ -20,9 +20,9 @@ bool Settings::saveInt(const String& key, int value) {
     if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
         return false;
     }
-    esp_err_t err = prefs.putInt(key.c_str(), value);
+    size_t written = prefs.putInt(key.c_str(), value);
     prefs.end();
-    return err == ESP_OK;
+    return written > 0;
 }
 
 bool Settings::saveULong(const String& key, unsigned long value) {
@@ -30,9 +30,9 @@ bool Settings::saveULong(const String& key, unsigned long value) {
     if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
         return false;
     }
-    esp_err_t err = prefs.putULong(key.c_str(), value);
+    size_t written = prefs.putULong(key.c_str(), value);
     prefs.end();
-    return err == ESP_OK;
+    return written > 0;
 }
 
 bool Settings::saveBool(const String& key, bool value) {
@@ -40,9 +40,9 @@ bool Settings::saveBool(const String& key, bool value) {
     if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
         return false;
     }
-    esp_err_t err = prefs.putBool(key.c_str(), value);
+    size_t written = prefs.putBool(key.c_str(), value);
     prefs.end();
-    return err == ESP_OK;
+    return written > 0;
 }
 
 bool Settings::saveString(const String& key, const String& value) {
@@ -50,9 +50,9 @@ bool Settings::saveString(const String& key, const String& value) {
     if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
         return false;
     }
-    esp_err_t err = prefs.putString(key.c_str(), value.c_str());
+    size_t written = prefs.putString(key.c_str(), value.c_str());
     prefs.end();
-    return err == ESP_OK;
+    return written > 0;
 }
 
 void Settings::load() {

@@ -19,9 +19,11 @@ static RuntimeSnapshot readRuntimeSnapshot() {
     if (xSemaphoreTake(runtimeState.dataMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
         snapshot.pressure = runtimeState.currentPressure;
         snapshot.voltage = runtimeState.currentVoltage;
+        snapshot.temperature = runtimeState.currentTemp;
         snapshot.manualOverride = runtimeState.manualOverride;
         snapshot.manualOn = runtimeState.manualOn;
         snapshot.manualStartTime = runtimeState.manualStartTime;
+        snapshot.isTempSensorConnected = runtimeState.isTempSensorConnected;
         xSemaphoreGive(runtimeState.dataMutex);
     }
     return snapshot;
@@ -79,10 +81,13 @@ void handleApi() {
 
         String json = "{\"pressure\":" + String(runtime.pressure, 2) + 
                        ",\"voltage\":" + String(runtime.voltage, 2) + 
+                       ",\"temperature\":" + String(runtime.temperature, 2) +
+                       ",\"tempConnected\":" + (runtime.isTempSensorConnected ? "true" : "false") +
                        ",\"maxPressure\":" + String(cfg.maxPressureThreshold, 2) + 
                        ",\"pressureUnit\":" + String(cfg.pressureUnit) +
                        ",\"offsetVoltage\":" + String(cfg.offsetVoltage, 3) + 
                        ",\"useTempSensor\":" + (cfg.useTempSensor ? "true" : "false") +
+                       ",\"devName\":\"" + cfg.devName + "\"" +
                        ",\"manualOverride\":" + (runtime.manualOverride ? "true" : "false") +
                        ",\"manualOn\":" + (runtime.manualOn ? "true" : "false") +
                        ",\"remainingTime\":" + String(remaining) + "}";

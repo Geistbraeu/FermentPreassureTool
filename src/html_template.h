@@ -91,6 +91,24 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
     margin-bottom: 16px;
     flex-wrap: wrap;
   }
+  .status-message {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .status-message.success {
+    background: rgba(52, 211, 153, 0.12);
+    border-color: rgba(52, 211, 153, 0.35);
+    color: #86efac;
+  }
+  .status-message.error {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.35);
+    color: #fca5a5;
+  }
   .btn {
     padding: 10px 20px;
     border: none;
@@ -226,9 +244,11 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
   <div class="header">
     <div class="header-left">
       <h1>&#127866; Fermenter Control</h1>
-      <p>)rawhtml";
-    html += cfg.devName + " &nbsp;&#183;&nbsp; " + WiFi.localIP().toString();
-    html += R"rawhtml(</p>
+      <p><span id="device-name">)rawhtml";
+    html += cfg.devName;
+    html += R"rawhtml(</span> &nbsp;&#183;&nbsp; <span id="device-ip">)rawhtml";
+    html += WiFi.localIP().toString();
+    html += R"rawhtml(</span></p>
     </div>
   </div>
 
@@ -252,6 +272,22 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
     html += String(runtime.voltage, 3) + " V";
     html += R"rawhtml(</div>
     </div>
+    )rawhtml";
+    if (cfg.useTempSensor) {
+    html += R"rawhtml(<div class="card" id="temp-card">
+      <div class="card-label">Temperature</div>
+      <div class="card-value )rawhtml";
+    html += runtime.isTempSensorConnected ? "ok" : "danger";
+    html += R"rawhtml(" id="temp-c">)rawhtml";
+    if (runtime.isTempSensorConnected) {
+      html += String(runtime.temperature, 2) + " °C";
+    } else {
+      html += "Disconnected";
+    }
+    html += R"rawhtml(</div>
+    </div>)rawhtml";
+    }
+    html += R"rawhtml(
     <div class="card">
       <div class="card-label">Valve</div>
       <div class="card-value )rawhtml";
@@ -274,6 +310,7 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
     </form>
   </div>
   <div id="timer"></div>
+  <div id="status-message" class="status-message" style="display:none;"></div>
   <br>
 
   <!-- TABS -->
@@ -432,9 +469,9 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
 
       <div class="section-title">ThingSpeak</div>
 
-      <div class="setting-group">
-        <label class="setting-label">Logging Enabled</label>
-        <form action="/api" method="POST">
+      <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">Logging Enabled</label>
           <div class="setting-row">
             <select name="tsEnabled">
               <option value="0")rawhtml";
@@ -444,41 +481,40 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
     html += (cfg.tsEnabled ? " selected" : "");
     html += R"rawhtml(>Enabled</option>
             </select>
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div class="setting-group">
-        <label class="setting-label">API Key</label>
-        <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">API Key</label>
           <div class="setting-row">
             <input type="text" name="tsApiKey" value=")rawhtml";
     html += cfg.tsApiKey;
     html += R"rawhtml(" placeholder="ThingSpeak Write API Key">
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div class="setting-group">
-        <label class="setting-label">Send Interval (seconds, min 15)</label>
-        <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">Send Interval (seconds, min 15)</label>
           <div class="setting-row">
             <input type="number" name="tsInterval" value=")rawhtml";
     html += String(cfg.tsIntervalSeconds);
     html += R"rawhtml(">
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-row">
+            <button class="btn-set" type="submit">Save ThingSpeak</button>
+          </div>
+        </div>
+      </form>
 
       <hr class="divider">
       <div class="section-title">Brewfather</div>
 
-      <div class="setting-group">
-        <label class="setting-label">Logging Enabled</label>
-        <form action="/api" method="POST">
+      <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">Logging Enabled</label>
           <div class="setting-row">
             <select name="bfEnabled">
               <option value="0")rawhtml";
@@ -488,53 +524,49 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
     html += (cfg.bfEnabled ? " selected" : "");
     html += R"rawhtml(>Enabled</option>
             </select>
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div class="setting-group">
-        <label class="setting-label">Stream ID</label>
-        <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">Stream ID</label>
           <div class="setting-row">
             <input type="text" name="bfStreamId" value=")rawhtml";
     html += cfg.bfStreamId;
     html += R"rawhtml(" placeholder="Brewfather Stream ID">
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div class="setting-group">
-        <label class="setting-label">Device Name in Brewfather</label>
-        <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">Device Name in Brewfather</label>
           <div class="setting-row">
             <input type="text" name="bfDeviceName" value=")rawhtml";
     html += cfg.bfDeviceName;
     html += R"rawhtml(" placeholder="e.g. Pressure_Sensor">
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div class="setting-group">
-        <label class="setting-label">Send Interval (minutes, min 15)</label>
-        <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">Send Interval (minutes, min 15)</label>
           <div class="setting-row">
             <input type="number" name="bfInterval" value=")rawhtml";
     html += String(cfg.bfIntervalMinutes);
     html += R"rawhtml(">
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-row">
+            <button class="btn-set" type="submit">Save Brewfather</button>
+          </div>
+        </div>
+      </form>
 
       <hr class="divider">
       <div class="section-title">Custom HTTP POST</div>
 
-      <div class="setting-group">
-        <label class="setting-label">HTTP POST Enabled</label>
-        <form action="/api" method="POST">
+      <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">HTTP POST Enabled</label>
           <div class="setting-row">
             <select name="httpEnabled">
               <option value="0")rawhtml";
@@ -544,58 +576,51 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
     html += (cfg.httpEnabled ? " selected" : "");
     html += R"rawhtml(>Enabled</option>
             </select>
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div class="setting-group">
-        <label class="setting-label">Server Address (http://... or https://...)</label>
-        <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">Server Address (http://... or https://...)</label>
           <div class="setting-row">
             <input type="text" name="httpServer" value=")rawhtml";
     html += cfg.httpServer;
     html += R"rawhtml(" placeholder="e.g. http://192.168.1.100:8080">
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div class="setting-group">
-        <label class="setting-label">HTTP Path (supports {volt}, {psi}, {bar}, {temp})</label>
-        <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">HTTP Path (supports {volt}, {psi}, {bar}, {temp})</label>
           <div class="setting-row">
             <input type="text" name="httpPath" value=")rawhtml";
     html += cfg.httpPath;
     html += R"rawhtml(" placeholder="e.g. /api/data?volt={volt}&psi={psi}">
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div class="setting-group">
-        <label class="setting-label">JSON Body Template (optional, supports {volt}, {psi}, {bar}, {temp})</label>
-        <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">JSON Body Template (optional, supports {volt}, {psi}, {bar}, {temp})</label>
           <div class="setting-row">
             <input type="text" name="httpBodyTemplate" value=")rawhtml";
     html += cfg.httpBodyTemplate;
     html += R"rawhtml(" placeholder="e.g. {\"voltage\":{volt},\"pressure\":{psi}}">
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div class="setting-group">
-        <label class="setting-label">Send Interval (seconds, min 15)</label>
-        <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">Send Interval (seconds, min 15)</label>
           <div class="setting-row">
             <input type="number" name="httpInterval" value=")rawhtml";
     html += String(cfg.httpIntervalSeconds);
     html += R"rawhtml(">
-            <button class="btn-set" type="submit">Set</button>
           </div>
-        </form>
-      </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-row">
+            <button class="btn-set" type="submit">Save HTTP</button>
+          </div>
+        </div>
+      </form>
 
     </div><!-- /panel-cloud -->
   </div><!-- /tabs-body -->
@@ -613,8 +638,28 @@ function switchTab(name, btn) {
 const pressurePsiEl = document.getElementById('pressure-psi');
 const pressureBarEl = document.getElementById('pressure-bar');
 const voltageEl = document.getElementById('voltage-v');
+const tempCardEl = document.getElementById('temp-card');
+const tempValueEl = document.getElementById('temp-c');
 const valveEl = document.getElementById('valve-state');
 const timerEl = document.getElementById('timer');
+const deviceNameEl = document.getElementById('device-name');
+const statusEl = document.getElementById('status-message');
+
+function showStatus(message, kind) {
+  if (!statusEl) return;
+
+  statusEl.textContent = message;
+  statusEl.className = 'status-message ' + kind;
+  statusEl.style.display = 'block';
+}
+
+function clearStatus() {
+  if (!statusEl) return;
+
+  statusEl.textContent = '';
+  statusEl.className = 'status-message';
+  statusEl.style.display = 'none';
+}
 
 function setValveState(manualOverride, manualOn) {
   if (!valveEl) return;
@@ -663,12 +708,79 @@ async function refreshLiveData() {
       voltageEl.textContent = voltage.toFixed(3) + ' V';
     }
 
+    if (tempCardEl) {
+      const temperatureEnabled = Boolean(data.useTempSensor);
+      tempCardEl.style.display = temperatureEnabled ? '' : 'none';
+
+      if (temperatureEnabled && tempValueEl) {
+        const temperature = Number(data.temperature);
+        if (Boolean(data.tempConnected) && Number.isFinite(temperature)) {
+          tempValueEl.className = 'card-value ok';
+          tempValueEl.textContent = temperature.toFixed(2) + ' °C';
+        } else {
+          tempValueEl.className = 'card-value danger';
+          tempValueEl.textContent = 'Disconnected';
+        }
+      }
+    }
+
+    if (deviceNameEl && data.devName) {
+      deviceNameEl.textContent = data.devName;
+    }
+
     setValveState(Boolean(data.manualOverride), Boolean(data.manualOn));
     setManualTimer(Boolean(data.manualOverride), Number(data.remainingTime));
   } catch (e) {
     // Ignore transient network or parsing failures; next poll will retry.
   }
 }
+
+async function submitSettingsForm(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const body = new URLSearchParams(new FormData(form));
+
+  try {
+    const response = await fetch(form.action || '/api', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: body.toString(),
+      cache: 'no-store'
+    });
+
+    const responseText = await response.text();
+    let data = null;
+
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      showStatus('Unexpected response from device.', 'error');
+      return;
+    }
+
+    if (data && data.success) {
+      const cmd = body.get('cmd');
+      showStatus(cmd ? 'Manual control updated.' : 'Data saved.', 'success');
+      await refreshLiveData();
+      return;
+    }
+
+    const errors = data && Array.isArray(data.errors) ? data.errors : [];
+    if (errors.length > 0) {
+      const firstError = errors[0];
+      showStatus(firstError.field + ': ' + firstError.message, 'error');
+    } else {
+      showStatus('Save failed.', 'error');
+    }
+  } catch (networkError) {
+    showStatus('Network error while saving.', 'error');
+  }
+}
+
+document.querySelectorAll('form[action="/api"][method="POST"]').forEach(form => {
+  form.addEventListener('submit', submitSettingsForm);
+});
 
 refreshLiveData();
 setInterval(refreshLiveData, 1000);

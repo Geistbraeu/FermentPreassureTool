@@ -55,6 +55,7 @@ void ThingSpeakProvider::send(const CloudPayload& payload) {
     request += "Host: " + String(CloudConfig::THINGSPEAK_SERVER) + "\r\n";
     request += "Connection: close\r\n\r\n";
 
+    DBG("[ThingSpeak] request:\n" + request);
     client.print(request);
     DBG("[ThingSpeak] HTTPS request sent");
   } else {

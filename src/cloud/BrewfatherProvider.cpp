@@ -60,6 +60,8 @@ void BrewfatherProvider::send(const CloudPayload& payload) {
     }
     jsonBody += "\"}";
 
+    DBG("[Brewfather] JSON:\n" + jsonBody);
+
     String request;
     request.reserve(340);
     request += "POST /stream?id=" + bfStreamId + " HTTP/1.1\r\n";

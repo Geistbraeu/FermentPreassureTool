@@ -16,8 +16,8 @@ void SolenoidController::applyState(bool manualOverride, bool manualOn, float cu
   static bool lastValveOpen = false;
 
   if (manualOverride) {
-    digitalWrite(HardwareConfig::SOLENOID_PIN, manualOn ? HIGH : LOW);
-    bool valveOpen = (manualOn ? HIGH : LOW) == HIGH;
+    bool valveOpen = manualOn;
+    digitalWrite(HardwareConfig::SOLENOID_PIN, valveOpen ? HIGH : LOW);
     if (!initialized || !lastManualOverride || valveOpen != lastValveOpen) {
       DBGF("[Valve] MANUAL %s\n", valveOpen ? "OPEN" : "CLOSED");
     }
@@ -27,17 +27,20 @@ void SolenoidController::applyState(bool manualOverride, bool manualOn, float cu
     return;
   }
 
-  bool changed = false;
+  bool valveOpen = digitalRead(HardwareConfig::SOLENOID_PIN) == HIGH;
+  bool desiredValveOpen = valveOpen;
   if (currentPressure > maxPressureThreshold) {
-    digitalWrite(HardwareConfig::SOLENOID_PIN, HIGH);
-    changed = true;
+    desiredValveOpen = true;
   } else if (currentPressure < (maxPressureThreshold - hysteresis)) {
-    digitalWrite(HardwareConfig::SOLENOID_PIN, LOW);
-    changed = true;
+    desiredValveOpen = false;
   }
 
-  bool valveOpen = digitalRead(HardwareConfig::SOLENOID_PIN) == HIGH;
-  if (!initialized || lastManualOverride || changed || valveOpen != lastValveOpen) {
+  if (desiredValveOpen != valveOpen) {
+    digitalWrite(HardwareConfig::SOLENOID_PIN, desiredValveOpen ? HIGH : LOW);
+    valveOpen = desiredValveOpen;
+  }
+
+  if (!initialized || lastManualOverride || valveOpen != lastValveOpen) {
     DBGF("[Valve] AUTO %s (P=%.2f, threshold=%.2f, hysteresis=%.2f)\n",
          valveOpen ? "OPEN" : "CLOSED",
          currentPressure,

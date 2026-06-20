@@ -92,6 +92,10 @@ void CustomHTTPProvider::send(const CloudPayload& payload) {
       request += finalBody;
     }
 
+    DBG("[HTTP] HTTPS request:\n" + request);
+    if (!finalBody.isEmpty()) {
+      DBG("[HTTP] HTTPS body:\n" + finalBody);
+    }
     httpsClient.print(request);
     httpsClient.flush();
     DBG("[HTTP] HTTPS POST sent");
@@ -115,6 +119,10 @@ void CustomHTTPProvider::send(const CloudPayload& payload) {
     request += finalBody;
   }
 
+  DBG("[HTTP] HTTP request:\n" + request);
+  if (!finalBody.isEmpty()) {
+    DBG("[HTTP] HTTP body:\n" + finalBody);
+  }
   httpClient.print(request);
   httpClient.flush();
   DBG("[HTTP] HTTP POST sent");
