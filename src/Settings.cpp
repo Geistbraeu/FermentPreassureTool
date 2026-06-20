@@ -1,60 +1,77 @@
 #include "Settings.h"
+#include "config.h"
 #include <Preferences.h>
 
 Settings settings;
 WifiSettings wifiSettings;
 
-void Settings::saveFloat(const String& key, float value) {
+bool Settings::saveFloat(const String& key, float value) {
     Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putFloat(key.c_str(), value);
+    if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
+        return false;
+    }
+    esp_err_t err = prefs.putFloat(key.c_str(), value);
     prefs.end();
+    return err == ESP_OK;
 }
 
-void Settings::saveInt(const String& key, int value) {
+bool Settings::saveInt(const String& key, int value) {
     Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putInt(key.c_str(), value);
+    if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
+        return false;
+    }
+    esp_err_t err = prefs.putInt(key.c_str(), value);
     prefs.end();
+    return err == ESP_OK;
 }
 
-void Settings::saveULong(const String& key, unsigned long value) {
+bool Settings::saveULong(const String& key, unsigned long value) {
     Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putULong(key.c_str(), value);
+    if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
+        return false;
+    }
+    esp_err_t err = prefs.putULong(key.c_str(), value);
     prefs.end();
+    return err == ESP_OK;
 }
 
-void Settings::saveBool(const String& key, bool value) {
+bool Settings::saveBool(const String& key, bool value) {
     Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putBool(key.c_str(), value);
+    if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
+        return false;
+    }
+    esp_err_t err = prefs.putBool(key.c_str(), value);
     prefs.end();
+    return err == ESP_OK;
 }
 
-void Settings::saveString(const String& key, const String& value) {
+bool Settings::saveString(const String& key, const String& value) {
     Preferences prefs;
-    prefs.begin("config", false);
-    prefs.putString(key.c_str(), value.c_str());
+    if (!prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, false)) {
+        return false;
+    }
+    esp_err_t err = prefs.putString(key.c_str(), value.c_str());
     prefs.end();
+    return err == ESP_OK;
 }
 
 void Settings::load() {
     Preferences prefs;
-    prefs.begin("config", true);
+    prefs.begin(PreferencesConfig::NVS_NAMESPACE_CONFIG, true);
     maxPressureThreshold = prefs.getFloat("maxPressure", 14.0);
     pressureUnit = prefs.getInt("pUnit", 0);
     hysteresis = prefs.getFloat("hysteresis", 0.5);
-    updateIntervalMs = prefs.getULong("updateInterval", 200);
-    medianSampleCount = prefs.getULong("medianCount", 5);
-    medianSampleDelayMs = prefs.getULong("medianDelay", 10);
-    tsIntervalSeconds = prefs.getULong("tsInterval", 120);
-    bfIntervalMinutes = prefs.getULong("bfInterval", 15);
-    offsetVoltage = prefs.getFloat("offsetVoltage", 0.515);
+    updateIntervalMs = prefs.getULong("updateInterval", ControlConfig::DEFAULT_UPDATE_INTERVAL_MS);
+    medianSampleCount = prefs.getULong("medianCount", ControlConfig::DEFAULT_MEDIAN_SAMPLE_COUNT);
+    medianSampleDelayMs = prefs.getULong("medianDelay", ControlConfig::DEFAULT_MEDIAN_SAMPLE_DELAY_MS);
+    tsIntervalSeconds = prefs.getULong("tsInterval", CloudConfig::THINGSPEAK_DEFAULT_INTERVAL_SEC);
+    bfIntervalMinutes = prefs.getULong("bfInterval", CloudConfig::BREWFATHER_DEFAULT_INTERVAL_MIN);
+    offsetVoltage = prefs.getFloat("offsetVoltage", SensorConfig::PRESSURE_OFFSET_DEFAULT);
     tempOffset = prefs.getFloat("tempOffset", 0.5);
     useTempSensor = prefs.getBool("useTemp", true);
-    tsApiKey = prefs.getString("tsApiKey", "DEXTOPQCD39G16GW");
-    bfStreamId = prefs.getString("bfStreamId", "b8wwXJ3xdW3B8h");
+    // ⚠️ NO HARDCODED API KEYS - must be configured via web UI
+    tsApiKey = prefs.getString("tsApiKey", "");
+    bfStreamId = prefs.getString("bfStreamId", "");
     bfDeviceName = prefs.getString("bfDevName", "Pressure_Sensor");
     tsEnabled = prefs.getBool("tsEnabled", true);
     bfEnabled = prefs.getBool("bfEnabled", true);
@@ -62,125 +79,175 @@ void Settings::load() {
     httpServer = prefs.getString("httpServer", "");
     httpPath = prefs.getString("httpPath", "/");
     httpBodyTemplate = prefs.getString("httpBody", "");
-    httpIntervalSeconds = prefs.getULong("httpInterval", 60);
+    httpIntervalSeconds = prefs.getULong("httpInterval", CloudConfig::CUSTOM_HTTP_DEFAULT_INTERVAL_SEC);
     prefs.end();
 }
 
-void Settings::setMaxPressureThreshold(float val) {
+bool Settings::isValid() const {
+    // Check if credentials are present when services are enabled
+    if (tsEnabled && tsApiKey.isEmpty()) {
+        return false;
+    }
+    if (bfEnabled && bfStreamId.isEmpty()) {
+        return false;
+    }
+    if (maxPressureThreshold <= 0) {
+        return false;
+    }
+    return true;
+}
+
+bool Settings::setMaxPressureThreshold(float val) {
+    if (val < 0.5 || val > 25.0) return false;
+    if (maxPressureThreshold == val) return true;  // No change
     maxPressureThreshold = val;
-    saveFloat("maxPressure", val);
+    return saveFloat("maxPressure", val);
 }
 
-void Settings::setPressureUnit(int val) {
+bool Settings::setPressureUnit(int val) {
+    if (val < 0 || val > 1) return false;  // Only 0 (PSI) or 1 (Bar)
+    if (pressureUnit == val) return true;
     pressureUnit = val;
-    saveInt("pUnit", val);
+    return saveInt("pUnit", val);
 }
 
-void Settings::setHysteresis(float val) {
+bool Settings::setHysteresis(float val) {
+    if (val <= 0 || val >= 2.0) return false;
+    if (hysteresis == val) return true;
     hysteresis = val;
-    saveFloat("hysteresis", val);
+    return saveFloat("hysteresis", val);
 }
 
-void Settings::setUpdateIntervalMs(unsigned long val) {
-    if (val < 1) val = 1;
+bool Settings::setUpdateIntervalMs(unsigned long val) {
+    if (val < 50 || val > 5000) return false;
+    if (updateIntervalMs == val) return true;
     updateIntervalMs = val;
-    saveULong("updateInterval", val);
+    return saveULong("updateInterval", val);
 }
 
-void Settings::setMedianSampleCount(unsigned int val) {
-    if (val < 3) val = 3;
-    if ((val % 2) == 0) val++;
+bool Settings::setMedianSampleCount(unsigned int val) {
+    if (val < ControlConfig::MIN_MEDIAN_SAMPLES || val > ControlConfig::MAX_MEDIAN_SAMPLES) return false;
+    if ((val % 2) == 0) val++;  // Ensure odd number
+    if (val > ControlConfig::MAX_MEDIAN_SAMPLES) return false;
+    if (medianSampleCount == val) return true;
     medianSampleCount = val;
-    saveULong("medianCount", val);
+    return saveULong("medianCount", val);
 }
 
-void Settings::setMedianSampleDelayMs(unsigned long val) {
-    if (val < 1) val = 1;
+bool Settings::setMedianSampleDelayMs(unsigned long val) {
+    if (val < 1 || val > 1000) return false;
+    if (medianSampleDelayMs == val) return true;
     medianSampleDelayMs = val;
-    saveULong("medianDelay", val);
+    return saveULong("medianDelay", val);
 }
 
-void Settings::setTsIntervalSeconds(unsigned long val) {
+bool Settings::setTsIntervalSeconds(unsigned long val) {
+    if (val < 15 || val > 3600) return false;
+    if (tsIntervalSeconds == val) return true;
     tsIntervalSeconds = val;
-    saveULong("tsInterval", val);
+    return saveULong("tsInterval", val);
 }
 
-void Settings::setBfIntervalMinutes(unsigned long val) {
+bool Settings::setBfIntervalMinutes(unsigned long val) {
+    if (val < 5 || val > 1440) return false;  // 5 min to 24 hours
+    if (bfIntervalMinutes == val) return true;
     bfIntervalMinutes = val;
-    saveULong("bfInterval", val);
+    return saveULong("bfInterval", val);
 }
 
-void Settings::setOffsetVoltage(float val) {
+bool Settings::setOffsetVoltage(float val) {
+    if (val < 0.0 || val > 4.5) return false;
+    if (offsetVoltage == val) return true;
     offsetVoltage = val;
-    saveFloat("offsetVoltage", val);
+    return saveFloat("offsetVoltage", val);
 }
 
-void Settings::setTempOffset(float val) {
+bool Settings::setTempOffset(float val) {
+    if (val < -50.0 || val > 50.0) return false;
+    if (tempOffset == val) return true;
     tempOffset = val;
-    saveFloat("tempOffset", val);
+    return saveFloat("tempOffset", val);
 }
 
-void Settings::setUseTempSensor(bool val) {
+bool Settings::setUseTempSensor(bool val) {
+    if (useTempSensor == val) return true;
     useTempSensor = val;
-    saveBool("useTemp", val);
+    return saveBool("useTemp", val);
 }
 
-void Settings::setTsApiKey(const String& val) {
+bool Settings::setTsApiKey(const String& val) {
+    if (val.length() > CloudConfig::CUSTOM_HTTP_MAX_KEY_LEN) return false;
+    if (tsApiKey == val) return true;
     tsApiKey = val;
-    saveString("tsApiKey", val);
+    return saveString("tsApiKey", val);
 }
 
-void Settings::setBfStreamId(const String& val) {
+bool Settings::setBfStreamId(const String& val) {
+    if (val.length() > CloudConfig::CUSTOM_HTTP_MAX_KEY_LEN) return false;
+    if (bfStreamId == val) return true;
     bfStreamId = val;
-    saveString("bfStreamId", val);
+    return saveString("bfStreamId", val);
 }
 
-void Settings::setBfDeviceName(const String& val) {
+bool Settings::setBfDeviceName(const String& val) {
+    if (val.isEmpty() || val.length() > 64) return false;
+    if (bfDeviceName == val) return true;
     bfDeviceName = val;
-    saveString("bfDevName", val);
+    return saveString("bfDevName", val);
 }
 
-void Settings::setTsEnabled(bool val) {
+bool Settings::setTsEnabled(bool val) {
+    if (tsEnabled == val) return true;
     tsEnabled = val;
-    saveBool("tsEnabled", val);
+    return saveBool("tsEnabled", val);
 }
 
-void Settings::setBfEnabled(bool val) {
+bool Settings::setBfEnabled(bool val) {
+    if (bfEnabled == val) return true;
     bfEnabled = val;
-    saveBool("bfEnabled", val);
+    return saveBool("bfEnabled", val);
 }
 
-void Settings::setHttpEnabled(bool val) {
+bool Settings::setHttpEnabled(bool val) {
+    if (httpEnabled == val) return true;
     httpEnabled = val;
-    saveBool("httpEnabled", val);
+    return saveBool("httpEnabled", val);
 }
 
-void Settings::setHttpServer(const String& val) {
+bool Settings::setHttpServer(const String& val) {
+    if (val.length() > CloudConfig::CUSTOM_HTTP_MAX_SERVER_LEN) return false;
+    if (httpServer == val) return true;
     httpServer = val;
-    saveString("httpServer", val);
+    return saveString("httpServer", val);
 }
 
-void Settings::setHttpPath(const String& val) {
+bool Settings::setHttpPath(const String& val) {
+    if (val.isEmpty() || val.length() > CloudConfig::CUSTOM_HTTP_MAX_PATH_LEN) return false;
+    if (httpPath == val) return true;
     httpPath = val;
-    saveString("httpPath", val);
+    return saveString("httpPath", val);
 }
 
-void Settings::setHttpBodyTemplate(const String& val) {
+bool Settings::setHttpBodyTemplate(const String& val) {
+    if (val.length() > CloudConfig::CUSTOM_HTTP_MAX_BODY_LEN) return false;
+    if (httpBodyTemplate == val) return true;
     httpBodyTemplate = val;
-    saveString("httpBody", val);
+    return saveString("httpBody", val);
 }
 
-void Settings::setHttpIntervalSeconds(unsigned long val) {
+bool Settings::setHttpIntervalSeconds(unsigned long val) {
+    if (val < 15 || val > 3600) return false;
+    if (httpIntervalSeconds == val) return true;
     httpIntervalSeconds = val;
-    saveULong("httpInterval", val);
+    return saveULong("httpInterval", val);
 }
 
 void WifiSettings::load() {
     Preferences prefs;
-    prefs.begin("wifi_conf", true);
+    prefs.begin(PreferencesConfig::NVS_NAMESPACE_WIFI, true);
     ssid = prefs.getString("ssid", "");
     pass = prefs.getString("pass", "");
-    devName = prefs.getString("devName", "ferment01");
+    devName = prefs.getString("devName", NetworkConfig::HOSTNAME);
     prefs.end();
 }
 
@@ -189,7 +256,7 @@ void WifiSettings::save(const String& newSsid, const String& newPass, const Stri
     pass = newPass;
     devName = newDevName;
     Preferences prefs;
-    prefs.begin("wifi_conf", false);
+    prefs.begin(PreferencesConfig::NVS_NAMESPACE_WIFI, false);
     prefs.putString("ssid", ssid);
     prefs.putString("pass", pass);
     prefs.putString("devName", devName);

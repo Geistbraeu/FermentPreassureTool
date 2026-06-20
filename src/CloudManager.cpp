@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <WiFiClientSecure.h>
+#include "config.h"
 #include "CloudManager.h"
-
 #include "Settings.h"
 
 static unsigned long lastThingSpeakTime = 0;
@@ -11,9 +11,6 @@ static unsigned long lastCustomHTTPTime = 0;
 // SECURE CLIENT AND SERVER SETTINGS
 WiFiClientSecure client;
 WiFiClient httpClient;
-
-const char* tsServer = "api.thingspeak.com";
-const char* bfServer = "log.brewfather.net";
 
 void initCloud() {
   client.setInsecure();
@@ -32,7 +29,7 @@ void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, floa
 
   client.stop();
   Serial.println("\n[ThingSpeak] Подключение к серверу (HTTPS)...");
-  if (client.connect(tsServer, 443)) {
+  if (client.connect(CloudConfig::THINGSPEAK_SERVER, CloudConfig::THINGSPEAK_PORT)) {
     Serial.print("[ThingSpeak] Отправка -> V: "); Serial.print(voltage);
     Serial.print("V, P(PSI): "); Serial.print(pressure);
     Serial.print(", P(Bar): "); Serial.print(pressureBar); 
@@ -54,7 +51,7 @@ void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, floa
     String httpRequest;
     httpRequest.reserve(200);
     httpRequest += "GET " + url + " HTTP/1.1\r\n";
-    httpRequest += "Host: " + String(tsServer) + "\r\n";
+    httpRequest += "Host: " + String(CloudConfig::THINGSPEAK_SERVER) + "\r\n";
     httpRequest += "Connection: close\r\n\r\n";
 
     client.print(httpRequest);
@@ -76,7 +73,7 @@ void sendDataToBrewfather(float voltage, float pressure, float temp) {
   
   Serial.println("\n[Brewfather] Подключение к серверу для POST...");
 
-  if (client.connect(bfServer, 443)) {
+  if (client.connect(CloudConfig::BREWFATHER_SERVER, CloudConfig::BREWFATHER_PORT)) {
     Serial.print("[Brewfather] Отправка -> V: "); Serial.print(voltage);
     Serial.print("V, P: "); Serial.print(pressure); 
     if (settings.useTempSensor) {
@@ -113,7 +110,7 @@ void sendDataToBrewfather(float voltage, float pressure, float temp) {
     String httpRequest;
     httpRequest.reserve(300);
     httpRequest += "POST /stream?id=" + settings.bfStreamId + " HTTP/1.1\r\n";
-    httpRequest += "Host: " + String(bfServer) + "\r\n";
+    httpRequest += "Host: " + String(CloudConfig::BREWFATHER_SERVER) + "\r\n";
     httpRequest += "Content-Type: application/json\r\n";
     httpRequest += "Content-Length: " + String(contentLength) + "\r\n";
     httpRequest += "Connection: close\r\n\r\n";

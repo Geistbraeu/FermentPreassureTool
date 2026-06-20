@@ -7,6 +7,7 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_MAX31865.h>
 #include <ESPmDNS.h>
+#include "config.h"
 #include "ConfigPortal.h"
 #include "web_server.h"
 #include "CloudManager.h"
@@ -14,26 +15,19 @@
 #include "RuntimeState.h"
 
 // Настройки OLED
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET    -1
-#define SOLENOID_PIN  27
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+Adafruit_SSD1306 display(DisplayConfig::SCREEN_WIDTH, DisplayConfig::SCREEN_HEIGHT, &Wire, DisplayConfig::OLED_RESET_PIN);
 bool isOledConnected = false;
 
 // Настройки MAX31865 (SPI)
-#define MAX31865_CS_PIN 5
-// Использование программного SPI (для примера, можно использовать аппаратный)
-// Pins: DI=23, DO=19, CLK=18, CS=5
-Adafruit_MAX31865 tempSensor = Adafruit_MAX31865(MAX31865_CS_PIN, 23, 19, 18);
-#define RREF      430.0
-#define RNOMINAL  100.0
-
-
-
+Adafruit_MAX31865 tempSensor = Adafruit_MAX31865(
+    HardwareConfig::TEMP_SENSOR_CS_PIN,
+    HardwareConfig::TEMP_SENSOR_DI_PIN,
+    HardwareConfig::TEMP_SENSOR_DO_PIN,
+    HardwareConfig::TEMP_SENSOR_CLK_PIN
+);
 
 // Железо
-const int sensorPin = 34;        // ADC1_CH6 (GPIO 34) - хороший выбор для ESP32
+const int sensorPin = HardwareConfig::ADC_PRESSURE_PIN;
 
 // Глобальные переменные для обмена данными между ядрами
 RuntimeState runtimeState;
@@ -45,15 +39,15 @@ void networkTask(void *pvParameters);
 void processSampledData();
 
 void setup() {
-  Serial.begin(115200);   
+  Serial.begin(NetworkConfig::SERIAL_BAUD_RATE);   
   while (!Serial); 
 
   // Настройка АЦП и чтение калибровки из eFuse
-  analogSetAttenuation(ADC_11db); // Используем ADC_11db, так как ADC_12db еще не объявлена в HAL
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, 1100, &runtimeState.adc_chars);
+  analogSetAttenuation(ADC_11db);
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, SensorConfig::ADC_VREF, &runtimeState.adc_chars);
 
   // Инициализация OLED
-  if(display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  if(display.begin(SSD1306_SWITCHCAPVCC, DisplayConfig::OLED_I2C_ADDRESS)) {
     isOledConnected = true;
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
@@ -69,19 +63,17 @@ void setup() {
   ConfigPortal::begin();
 
   // Инициализация клапана
-  pinMode(SOLENOID_PIN, OUTPUT);
-  digitalWrite(SOLENOID_PIN, LOW);
+  pinMode(HardwareConfig::SOLENOID_PIN, OUTPUT);
+  digitalWrite(HardwareConfig::SOLENOID_PIN, LOW);
 
   // Инициализация mDNS
-  if (!MDNS.begin(HOSTNAME)) {
+  if (!MDNS.begin("ferment01")) {
     Serial.println("mDNS ERROR");
   } else {
-    Serial.println("mDNS responder started: " + String(HOSTNAME) + ".local");
-    MDNS.addService("http", "tcp", 80);
+    Serial.println("mDNS responder started: ferment01.local");
+    MDNS.addService("http", "tcp", NetworkConfig::WEBSERVER_PORT);
   }
  
- 
-
   // Чтение настроек
   settings.load();
 
@@ -89,7 +81,6 @@ void setup() {
   if (settings.useTempSensor) {
     tempSensor.begin(MAX31865_2WIRE);
   }
-
 
   // Создаем мьютекс для защиты общих данных
   runtimeState.dataMutex = xSemaphoreCreateMutex();
@@ -99,24 +90,24 @@ void setup() {
 
   // Задача для чтения сенсора (Core 1)
   xTaskCreatePinnedToCore(
-    sensorTask,   // Функция задачи
-    "SensorTask", // Имя
-    4096,         // Стек
-    NULL,         // Параметры
-    1,            // Приоритет
-    NULL,         // Хендл
-    1             // Ядро (Core 1)
+    sensorTask,
+    "SensorTask",
+    TaskConfig::SENSOR_TASK_STACK_SIZE,
+    NULL,
+    TaskConfig::SENSOR_TASK_PRIORITY,
+    NULL,
+    TaskConfig::SENSOR_TASK_CORE
   );
 
   // Задача для Wi-Fi и облаков (Core 0)
   xTaskCreatePinnedToCore(
     networkTask,
     "NetworkTask",
-    8192,         // Больше стека для SSL
+    TaskConfig::NETWORK_TASK_STACK_SIZE,
     NULL,
-    1,
+    TaskConfig::NETWORK_TASK_PRIORITY,
     NULL,
-    0             // Ядро (Core 0)
+    TaskConfig::NETWORK_TASK_CORE
   );
 
   Serial.println("\n--- Система запущена на двух ядрах ---");
@@ -142,8 +133,8 @@ float readTemperature(bool isEnabled) {
     return 0.0;
   }
 
-  float t = tempSensor.temperature(RNOMINAL, RREF);
-  if (t < -100.0) {
+  float t = tempSensor.temperature(SensorConfig::RNOMINAL, SensorConfig::RREF);
+  if (t < SensorConfig::TEMP_FAULT_THRESHOLD) {
     runtimeState.isTempSensorConnected = false;
     return 0.0;
   }
@@ -161,24 +152,24 @@ void processSampledData() {
     runtimeState.isTempSensorConnected = false;
   }
 
-  if (xSemaphoreTake(runtimeState.dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+  if (xSemaphoreTake(runtimeState.dataMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
     if (runtimeState.hasSampledData) {
       runtimeState.currentVoltage = runtimeState.sampledVoltage;
       runtimeState.currentPressure = runtimeState.sampledPressure;
       runtimeState.currentTemp = t;
       runtimeState.isDataReady = true;
 
-      if (runtimeState.manualOverride && (millis() - runtimeState.manualStartTime > 10000)) {
+      if (runtimeState.manualOverride && (millis() - runtimeState.manualStartTime > ControlConfig::MANUAL_OVERRIDE_TIMEOUT_MS)) {
           runtimeState.manualOverride = false;
       }
 
       if (runtimeState.manualOverride) {
-          digitalWrite(SOLENOID_PIN, runtimeState.manualOn ? HIGH : LOW);
+          digitalWrite(HardwareConfig::SOLENOID_PIN, runtimeState.manualOn ? HIGH : LOW);
       } else {
           if (runtimeState.currentPressure > settings.maxPressureThreshold) {
-              digitalWrite(SOLENOID_PIN, HIGH);
+              digitalWrite(HardwareConfig::SOLENOID_PIN, HIGH);
           } else if (runtimeState.currentPressure < (settings.maxPressureThreshold - settings.hysteresis)) {
-              digitalWrite(SOLENOID_PIN, LOW);
+              digitalWrite(HardwareConfig::SOLENOID_PIN, LOW);
           }
       }
     }
@@ -188,17 +179,16 @@ void processSampledData() {
 
 // --- ЛОГИКА СЕНСОРА (Core 1) ---
 void sensorTask(void *pvParameters) {
-  const unsigned int kMaxMedianSamples = 31;
-  int samples[kMaxMedianSamples];
+  int samples[ControlConfig::MAX_MEDIAN_SAMPLES];
   unsigned long lastProcessAt = 0;
 
   for (;;) {
     unsigned int sampleCount = settings.medianSampleCount;
-    if (sampleCount < 3) sampleCount = 3;
-    if (sampleCount > kMaxMedianSamples) sampleCount = kMaxMedianSamples;
+    if (sampleCount < ControlConfig::MIN_MEDIAN_SAMPLES) sampleCount = ControlConfig::MIN_MEDIAN_SAMPLES;
+    if (sampleCount > ControlConfig::MAX_MEDIAN_SAMPLES) sampleCount = ControlConfig::MAX_MEDIAN_SAMPLES;
     if ((sampleCount % 2) == 0) {
       sampleCount++;
-      if (sampleCount > kMaxMedianSamples) sampleCount = kMaxMedianSamples;
+      if (sampleCount > ControlConfig::MAX_MEDIAN_SAMPLES) sampleCount = ControlConfig::MAX_MEDIAN_SAMPLES;
     }
 
     // 1. Сбор данных для медианного фильтра
@@ -222,15 +212,15 @@ void sensorTask(void *pvParameters) {
     // 3. Расчет значений давления
     uint32_t voltage_mv = esp_adc_cal_raw_to_voltage(medianRaw, &runtimeState.adc_chars);
     float vMeasured = voltage_mv / 1000.0;
-    float vSensor = vMeasured * 1.4545;
+    float vSensor = vMeasured * SensorConfig::ADC_VOLTAGE_DIVIDER;
 
     float p = 0.0;
     if (vSensor > settings.offsetVoltage) {
-      p = (vSensor - settings.offsetVoltage) * 100.0 / (4.5 - 0.5); 
+      p = (vSensor - settings.offsetVoltage) * SensorConfig::PRESSURE_PSI_RANGE / SensorConfig::PRESSURE_VOLTAGE_RANGE;
     }
 
     // 4. Непрерывно публикуем фильтрованные значения в RuntimeState
-    if (xSemaphoreTake(runtimeState.dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+    if (xSemaphoreTake(runtimeState.dataMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
       runtimeState.sampledVoltage = vSensor;
       runtimeState.sampledPressure = p;
       runtimeState.hasSampledData = true;
@@ -260,7 +250,7 @@ void networkTask(void *pvParameters) {
     }
 
     // Получаем копию данных и статус готовности
-    if (xSemaphoreTake(runtimeState.dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+    if (xSemaphoreTake(runtimeState.dataMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
       vLocal = runtimeState.currentVoltage;
       pLocal = runtimeState.currentPressure;
       tLocal = runtimeState.currentTemp;
@@ -273,7 +263,7 @@ void networkTask(void *pvParameters) {
     if (WiFi.status() == WL_CONNECTED) {
       ipStr = WiFi.localIP().toString();
     }
-    float pBar = pLocal * 0.0689476;
+    float pBar = pLocal * SensorConfig::PSI_TO_BAR;
     updateDisplay(ipStr, vLocal, pBar, tLocal);
 
     // Выполняем отправку только если данные уже были считаны сенсором
@@ -296,8 +286,8 @@ void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp
   // 1. Верхняя зона (y=0-15) - Имя и Max Pressure
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.print(HOSTNAME);
+  display.setCursor(DisplayConfig::LAYOUT_X_LEFT, DisplayConfig::LAYOUT_Y_HOSTNAME);
+  display.print("ferment01");
   
   float pDisplay = (settings.pressureUnit == 0) ? (pressureBar / 0.0689476) : pressureBar;
   String unitStr = (settings.pressureUnit == 0) ? "PSI" : "Bar";

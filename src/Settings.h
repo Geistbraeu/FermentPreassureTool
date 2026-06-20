@@ -34,35 +34,36 @@ public:
     unsigned long httpIntervalSeconds;
 
     void load();
+    bool isValid() const;
     
-    void setMaxPressureThreshold(float val);
-    void setPressureUnit(int val);
-    void setHysteresis(float val);
-    void setUpdateIntervalMs(unsigned long val);
-    void setMedianSampleCount(unsigned int val);
-    void setMedianSampleDelayMs(unsigned long val);
-    void setTsIntervalSeconds(unsigned long val);
-    void setBfIntervalMinutes(unsigned long val);
-    void setOffsetVoltage(float val);
-    void setTempOffset(float val);
-    void setUseTempSensor(bool val);
-    void setTsApiKey(const String& val);
-    void setBfStreamId(const String& val);
-    void setBfDeviceName(const String& val);
-    void setTsEnabled(bool val);
-    void setBfEnabled(bool val);
-    void setHttpEnabled(bool val);
-    void setHttpServer(const String& val);
-    void setHttpPath(const String& val);
-    void setHttpBodyTemplate(const String& val);
-    void setHttpIntervalSeconds(unsigned long val);
+    bool setMaxPressureThreshold(float val);
+    bool setPressureUnit(int val);
+    bool setHysteresis(float val);
+    bool setUpdateIntervalMs(unsigned long val);
+    bool setMedianSampleCount(unsigned int val);
+    bool setMedianSampleDelayMs(unsigned long val);
+    bool setTsIntervalSeconds(unsigned long val);
+    bool setBfIntervalMinutes(unsigned long val);
+    bool setOffsetVoltage(float val);
+    bool setTempOffset(float val);
+    bool setUseTempSensor(bool val);
+    bool setTsApiKey(const String& val);
+    bool setBfStreamId(const String& val);
+    bool setBfDeviceName(const String& val);
+    bool setTsEnabled(bool val);
+    bool setBfEnabled(bool val);
+    bool setHttpEnabled(bool val);
+    bool setHttpServer(const String& val);
+    bool setHttpPath(const String& val);
+    bool setHttpBodyTemplate(const String& val);
+    bool setHttpIntervalSeconds(unsigned long val);
 
 private:
-    void saveFloat(const String& key, float value);
-    void saveInt(const String& key, int value);
-    void saveULong(const String& key, unsigned long value);
-    void saveBool(const String& key, bool value);
-    void saveString(const String& key, const String& value);
+    bool saveFloat(const String& key, float value);
+    bool saveInt(const String& key, int value);
+    bool saveULong(const String& key, unsigned long value);
+    bool saveBool(const String& key, bool value);
+    bool saveString(const String& key, const String& value);
 };
 
 extern Settings settings;

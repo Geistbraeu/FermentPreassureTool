@@ -2,6 +2,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include "config.h"
+#include "validation.h"
 #include "web_server.h"
 #include "html_template.h"
 #include "Settings.h"
@@ -66,6 +68,9 @@ void handleApi() {
                        ",\"remainingTime\":" + String(remaining) + "}";
         server.send(200, "application/json", json);
     } else if (server.method() == HTTP_POST) {
+        String errors = "";
+        bool hasErrors = false;
+        
         if (server.hasArg("cmd")) {
             String cmd = server.arg("cmd");
             if (cmd == "manual_on") {
@@ -76,84 +81,211 @@ void handleApi() {
                 runtimeState.manualOverride = false;
             }
         }
+        
         if (server.hasArg("pressure")) {
-            settings.setMaxPressureThreshold(server.arg("pressure").toFloat());
+            float val = server.arg("pressure").toFloat();
+            if (!Validation::isValidPressure(val)) {
+                errors += "pressure invalid range (0.5-25.0),";
+                hasErrors = true;
+            } else {
+                settings.setMaxPressureThreshold(val);
+            }
         }
+        
         if (server.hasArg("devName")) {
             String newDevName = server.arg("devName");
-            if (!newDevName.isEmpty()) {
+            if (!Validation::isValidHostname(newDevName)) {
+                errors += "devName invalid,";
+                hasErrors = true;
+            } else {
                 wifiSettings.save(wifiSettings.ssid, wifiSettings.pass, newDevName);
                 WiFi.setHostname(newDevName.c_str());
             }
         }
+        
         if (server.hasArg("pUnit")) {
-            settings.setPressureUnit(server.arg("pUnit").toInt());
+            int val = server.arg("pUnit").toInt();
+            if (!Validation::isValidPressureUnit(val)) {
+                errors += "pUnit must be 0 or 1,";
+                hasErrors = true;
+            } else {
+                settings.setPressureUnit(val);
+            }
         }
+        
         if (server.hasArg("hysteresis")) {
-            settings.setHysteresis(server.arg("hysteresis").toFloat());
+            float val = server.arg("hysteresis").toFloat();
+            if (!Validation::isValidHysteresis(val)) {
+                errors += "hysteresis must be 0-2.0,";
+                hasErrors = true;
+            } else {
+                settings.setHysteresis(val);
+            }
         }
+        
         if (server.hasArg("updateInterval")) {
-            settings.setUpdateIntervalMs(server.arg("updateInterval").toInt());
+            unsigned long val = server.arg("updateInterval").toInt();
+            if (!Validation::isValidUpdateInterval(val)) {
+                errors += "updateInterval must be 50-5000ms,";
+                hasErrors = true;
+            } else {
+                settings.setUpdateIntervalMs(val);
+            }
         }
+        
         if (server.hasArg("medianSampleCount")) {
-            settings.setMedianSampleCount(server.arg("medianSampleCount").toInt());
+            unsigned int val = server.arg("medianSampleCount").toInt();
+            if (!Validation::isValidMedianSampleCount(val)) {
+                errors += "medianCount must be odd 3-31,";
+                hasErrors = true;
+            } else {
+                settings.setMedianSampleCount(val);
+            }
         }
+        
         if (server.hasArg("medianSampleDelay")) {
-            settings.setMedianSampleDelayMs(server.arg("medianSampleDelay").toInt());
+            unsigned long val = server.arg("medianSampleDelay").toInt();
+            if (!Validation::isValidMedianSampleDelay(val)) {
+                errors += "medianDelay must be 1-1000ms,";
+                hasErrors = true;
+            } else {
+                settings.setMedianSampleDelayMs(val);
+            }
         }
+        
         if (server.hasArg("tsInterval")) {
             unsigned long val = server.arg("tsInterval").toInt();
-            if (val < 15) val = 15;
-            settings.setTsIntervalSeconds(val);
+            if (!Validation::isValidTsInterval(val)) {
+                errors += "tsInterval must be 15-3600sec,";
+                hasErrors = true;
+            } else {
+                settings.setTsIntervalSeconds(val);
+            }
         }
+        
         if (server.hasArg("bfInterval")) {
             unsigned long val = server.arg("bfInterval").toInt();
-            if (val < 15) val = 15;
-            settings.setBfIntervalMinutes(val);
+            if (!Validation::isValidBfInterval(val)) {
+                errors += "bfInterval must be 5-1440min,";
+                hasErrors = true;
+            } else {
+                settings.setBfIntervalMinutes(val);
+            }
         }
+        
         if (server.hasArg("offset")) {
-            settings.setOffsetVoltage(server.arg("offset").toFloat());
+            float val = server.arg("offset").toFloat();
+            if (!Validation::isValidOffsetVoltage(val)) {
+                errors += "offset must be 0-4.5V,";
+                hasErrors = true;
+            } else {
+                settings.setOffsetVoltage(val);
+            }
         }
+        
         if (server.hasArg("tempOffset")) {
-            settings.setTempOffset(server.arg("tempOffset").toFloat());
+            float val = server.arg("tempOffset").toFloat();
+            if (!Validation::isValidTempOffset(val)) {
+                errors += "tempOffset must be -50 to +50C,";
+                hasErrors = true;
+            } else {
+                settings.setTempOffset(val);
+            }
         }
+        
         if (server.hasArg("useTemp")) {
             settings.setUseTempSensor(server.arg("useTemp").toInt() == 1);
         }
+        
         if (server.hasArg("tsApiKey")) {
-            settings.setTsApiKey(server.arg("tsApiKey"));
+            String val = server.arg("tsApiKey");
+            if (!Validation::isValidApiKey(val)) {
+                errors += "tsApiKey too long,";
+                hasErrors = true;
+            } else {
+                settings.setTsApiKey(val);
+            }
         }
+        
         if (server.hasArg("bfStreamId")) {
-            settings.setBfStreamId(server.arg("bfStreamId"));
+            String val = server.arg("bfStreamId");
+            if (!Validation::isValidApiKey(val)) {
+                errors += "bfStreamId too long,";
+                hasErrors = true;
+            } else {
+                settings.setBfStreamId(val);
+            }
         }
+        
         if (server.hasArg("bfDeviceName")) {
-            settings.setBfDeviceName(server.arg("bfDeviceName"));
+            String val = server.arg("bfDeviceName");
+            if (!Validation::isValidDeviceName(val)) {
+                errors += "bfDeviceName invalid,";
+                hasErrors = true;
+            } else {
+                settings.setBfDeviceName(val);
+            }
         }
+        
         if (server.hasArg("tsEnabled")) {
             settings.setTsEnabled(server.arg("tsEnabled").toInt() == 1);
         }
+        
         if (server.hasArg("bfEnabled")) {
             settings.setBfEnabled(server.arg("bfEnabled").toInt() == 1);
         }
+        
         if (server.hasArg("httpEnabled")) {
             settings.setHttpEnabled(server.arg("httpEnabled").toInt() == 1);
         }
+        
         if (server.hasArg("httpServer")) {
-            settings.setHttpServer(server.arg("httpServer"));
+            String val = server.arg("httpServer");
+            if (!Validation::isValidHttpServer(val)) {
+                errors += "httpServer too long,";
+                hasErrors = true;
+            } else {
+                settings.setHttpServer(val);
+            }
         }
+        
         if (server.hasArg("httpPath")) {
-            settings.setHttpPath(server.arg("httpPath"));
+            String val = server.arg("httpPath");
+            if (!Validation::isValidHttpPath(val)) {
+                errors += "httpPath invalid,";
+                hasErrors = true;
+            } else {
+                settings.setHttpPath(val);
+            }
         }
+        
         if (server.hasArg("httpBodyTemplate")) {
-            settings.setHttpBodyTemplate(server.arg("httpBodyTemplate"));
+            String val = server.arg("httpBodyTemplate");
+            if (!Validation::isValidHttpBodyTemplate(val)) {
+                errors += "httpBody too long,";
+                hasErrors = true;
+            } else {
+                settings.setHttpBodyTemplate(val);
+            }
         }
+        
         if (server.hasArg("httpInterval")) {
             unsigned long val = server.arg("httpInterval").toInt();
-            if (val < 15) val = 15;
-            settings.setHttpIntervalSeconds(val);
+            if (!Validation::isValidCustomHttpInterval(val)) {
+                errors += "httpInterval must be 15-3600sec,";
+                hasErrors = true;
+            } else {
+                settings.setHttpIntervalSeconds(val);
+            }
         }
-        server.sendHeader("Location", "/", true);
-        server.send(303, "text/plain", "OK");
+        
+        if (hasErrors) {
+            String response = "{\"success\":false,\"errors\":\"" + errors + "\"}";
+            server.send(400, "application/json", response);
+        } else {
+            server.sendHeader("Location", "/", true);
+            server.send(303, "text/plain", "OK");
+        }
     }
 }
 
