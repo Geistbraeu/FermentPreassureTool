@@ -32,6 +32,8 @@ static RuntimeSnapshot readRuntimeSnapshot() {
 static SettingsSnapshot readSettingsSnapshot() {
     SettingsSnapshot snapshot;
     snapshot.devName = wifiSettings.devName;
+    snapshot.ssid = wifiSettings.ssid;
+    snapshot.pass = wifiSettings.pass;
 
     if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
         snapshot.maxPressureThreshold = settings.maxPressureThreshold;
@@ -56,6 +58,8 @@ static SettingsSnapshot readSettingsSnapshot() {
         snapshot.httpBodyTemplate = settings.httpBodyTemplate;
         snapshot.httpIntervalSeconds = settings.httpIntervalSeconds;
         snapshot.devName = wifiSettings.devName;
+        snapshot.ssid = wifiSettings.ssid;
+        snapshot.pass = wifiSettings.pass;
         xSemaphoreGive(runtimeState.settingsMutex);
     }
     return snapshot;
@@ -95,6 +99,7 @@ void handleApi() {
     } else if (server.method() == HTTP_POST) {
         String errorsJson = "";
         bool hasErrors = false;
+        bool wifiChanged = false;
 
         auto addError = [&](const String& field, const String& message) {
             if (hasErrors) {
@@ -149,6 +154,18 @@ void handleApi() {
             } else {
                 wifiSettings.save(wifiSettings.ssid, wifiSettings.pass, newDevName);
                 WiFi.setHostname(newDevName.c_str());
+            }
+        }
+
+        if (server.hasArg("ssid") || server.hasArg("pass")) {
+            String newSsid = server.hasArg("ssid") ? Validation::trim(server.arg("ssid")) : wifiSettings.ssid;
+            String newPass = server.hasArg("pass") ? Validation::trim(server.arg("pass")) : wifiSettings.pass;
+
+            if (newSsid.isEmpty()) {
+                addError("ssid", "invalid_ssid");
+            } else {
+                wifiChanged = (newSsid != wifiSettings.ssid) || (newPass != wifiSettings.pass);
+                wifiSettings.save(newSsid, newPass, wifiSettings.devName);
             }
         }
         
@@ -417,6 +434,10 @@ void handleApi() {
             server.send(400, "application/json", response);
         } else {
             server.send(200, "application/json", "{\"success\":true}");
+            if (wifiChanged) {
+                delay(200);
+                ESP.restart();
+            }
         }
     }
 }

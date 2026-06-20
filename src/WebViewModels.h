@@ -37,6 +37,8 @@ struct SettingsSnapshot {
     String httpBodyTemplate;
     unsigned long httpIntervalSeconds = CloudConfig::CUSTOM_HTTP_DEFAULT_INTERVAL_SEC;
     String devName;
+    String ssid;
+    String pass;
 };
 
 #endif // WEB_VIEW_MODELS_H
