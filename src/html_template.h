@@ -327,7 +327,6 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
   </div>
 
   <div class="tabs-body">
-    <form action="/api" method="POST" id="settings-form">
     <!-- TAB: MAIN SETTINGS -->
     <div class="tab-panel active" id="panel-main">
 
@@ -335,43 +334,55 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
 
       <div class="setting-group">
         <label class="setting-label">Max Pressure Threshold (PSI)</label>
-        <div class="setting-row">
-          <input type="number" step="0.1" name="pressure" value=")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="number" step="0.1" name="pressure" value=")rawhtml";
     html += String(cfg.maxPressureThreshold, 1);
     html += R"rawhtml(">
-        </div>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
       <div class="setting-group">
         <label class="setting-label">Device Name</label>
-        <div class="setting-row">
-          <input type="text" name="devName" value=")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="text" name="devName" value=")rawhtml";
     html += cfg.devName;
     html += R"rawhtml(">
-        </div>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
       <div class="setting-group">
         <label class="setting-label">Pressure Unit</label>
-        <div class="setting-row">
-          <select name="pUnit">
-            <option value="0")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <select name="pUnit">
+              <option value="0")rawhtml";
     html += (cfg.pressureUnit == 0 ? " selected" : "");
     html += R"rawhtml(>PSI</option>
-            <option value="1")rawhtml";
+              <option value="1")rawhtml";
     html += (cfg.pressureUnit == 1 ? " selected" : "");
     html += R"rawhtml(>Bar</option>
-          </select>
-        </div>
+            </select>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
       <div class="setting-group">
         <label class="setting-label">Hysteresis (PSI)</label>
-        <div class="setting-row">
-          <input type="number" step="0.1" name="hysteresis" value=")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="number" step="0.1" name="hysteresis" value=")rawhtml";
     html += String(cfg.hysteresis, 1);
     html += R"rawhtml(">
-        </div>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
       <hr class="divider">
@@ -379,61 +390,79 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
 
       <div class="setting-group">
         <label class="setting-label">Update Interval (ms)</label>
-        <div class="setting-row">
-          <input type="number" name="updateInterval" value=")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="number" name="updateInterval" value=")rawhtml";
     html += String(cfg.updateIntervalMs);
     html += R"rawhtml(">
-        </div>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
       <div class="setting-group">
         <label class="setting-label">Median Sample Count</label>
-        <div class="setting-row">
-          <input type="number" name="medianSampleCount" value=")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="number" name="medianSampleCount" value=")rawhtml";
     html += String(cfg.medianSampleCount);
     html += R"rawhtml(">
-        </div>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
       <div class="setting-group">
         <label class="setting-label">Median Sample Delay (ms)</label>
-        <div class="setting-row">
-          <input type="number" name="medianSampleDelay" value=")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="number" name="medianSampleDelay" value=")rawhtml";
     html += String(cfg.medianSampleDelayMs);
     html += R"rawhtml(">
-        </div>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
       <div class="setting-group">
         <label class="setting-label">Voltage Offset (V)</label>
-        <div class="setting-row">
-          <input type="number" step="0.001" name="offset" value=")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="number" step="0.001" name="offset" value=")rawhtml";
     html += String(cfg.offsetVoltage, 3);
     html += R"rawhtml(">
-        </div>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
       <div class="setting-group">
         <label class="setting-label">Temperature Offset (°C)</label>
-        <div class="setting-row">
-          <input type="number" step="0.1" name="tempOffset" value=")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="number" step="0.1" name="tempOffset" value=")rawhtml";
     html += String(cfg.tempOffset, 1);
     html += R"rawhtml(">
-        </div>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
       <div class="setting-group">
         <label class="setting-label">Temperature Sensor</label>
-        <div class="setting-row">
-          <select name="useTemp">
-            <option value="0")rawhtml";
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <select name="useTemp">
+              <option value="0")rawhtml";
     html += (!cfg.useTempSensor ? " selected" : "");
     html += R"rawhtml(>Disabled</option>
-            <option value="1")rawhtml";
+              <option value="1")rawhtml";
     html += (cfg.useTempSensor ? " selected" : "");
     html += R"rawhtml(>Enabled</option>
-          </select>
-        </div>
+            </select>
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
       </div>
 
     </div><!-- /panel-main -->
@@ -442,6 +471,8 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
     <div class="tab-panel" id="panel-cloud">
 
       <div class="section-title">ThingSpeak</div>
+
+      <form action="/api" method="POST">
         <div class="setting-group">
           <label class="setting-label">Logging Enabled</label>
           <div class="setting-row">
@@ -474,8 +505,17 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
           </div>
         </div>
 
+        <div class="setting-group">
+          <div class="setting-row">
+            <button class="btn-set" type="submit">Save ThingSpeak</button>
+          </div>
+        </div>
+      </form>
+
       <hr class="divider">
       <div class="section-title">Brewfather</div>
+
+      <form action="/api" method="POST">
         <div class="setting-group">
           <label class="setting-label">Logging Enabled</label>
           <div class="setting-row">
@@ -517,8 +557,17 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
           </div>
         </div>
 
+        <div class="setting-group">
+          <div class="setting-row">
+            <button class="btn-set" type="submit">Save Brewfather</button>
+          </div>
+        </div>
+      </form>
+
       <hr class="divider">
       <div class="section-title">Custom HTTP POST</div>
+
+      <form action="/api" method="POST">
         <div class="setting-group">
           <label class="setting-label">HTTP POST Enabled</label>
           <div class="setting-row">
@@ -569,45 +618,44 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
           </div>
         </div>
 
+        <div class="setting-group">
+          <div class="setting-row">
+            <button class="btn-set" type="submit">Save HTTP</button>
+          </div>
+        </div>
+      </form>
+
     </div><!-- /panel-cloud -->
 
     <!-- TAB: WIFI SETTINGS -->
     <div class="tab-panel" id="panel-wifi">
       <div class="section-title">WiFi Connection</div>
-
-      <div class="setting-group">
-        <label class="setting-label">WiFi SSID</label>
-        <div class="setting-row">
-          <input type="text" name="ssid" value=")rawhtml";
+      <form action="/api" method="POST">
+        <div class="setting-group">
+          <label class="setting-label">WiFi SSID</label>
+          <div class="setting-row">
+            <input type="text" name="ssid" value=")rawhtml";
     html += cfg.ssid;
     html += R"rawhtml(" placeholder="Network name">
+          </div>
         </div>
-      </div>
 
-      <div class="setting-group">
-        <label class="setting-label">WiFi Password</label>
-        <div class="setting-row">
-          <input type="password" name="pass" value=")rawhtml";
+        <div class="setting-group">
+          <label class="setting-label">WiFi Password</label>
+          <div class="setting-row">
+            <input type="password" name="pass" value=")rawhtml";
     html += cfg.pass;
     html += R"rawhtml(" placeholder="Network password">
+          </div>
         </div>
-      </div>
 
-      <div class="setting-group">
-        <label class="setting-label">Note</label>
-        <div class="setting-row">
-          <input type="text" value="New WiFi credentials will be used on next reconnect/restart" readonly>
+        <div class="setting-group">
+          <div class="setting-row">
+            <button class="btn-set" type="submit">Save WiFi</button>
+          </div>
         </div>
-      </div>
+      </form>
     </div><!-- /panel-wifi -->
-
-    <hr class="divider">
-    <div class="setting-group">
-      <div class="setting-row">
-        <button class="btn-set" type="submit">Save All Settings</button>
-      </div>
-    </div>
-    </form>
   </div><!-- /tabs-body -->
 
 </div><!-- /container -->
