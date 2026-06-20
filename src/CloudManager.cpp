@@ -3,6 +3,9 @@
 #include "config.h"
 #include "CloudManager.h"
 #include "Settings.h"
+#include "RuntimeState.h"
+
+extern RuntimeState runtimeState;
 
 static unsigned long lastThingSpeakTime = 0;
 static unsigned long lastBrewfatherTime = 0;
@@ -14,15 +17,36 @@ WiFiClient httpClient;
 
 void initCloud() {
   client.setInsecure();
-  lastThingSpeakTime = millis() - (settings.tsIntervalSeconds * 1000);
-  lastBrewfatherTime = millis() - (settings.bfIntervalMinutes * 60000);
-  lastCustomHTTPTime = millis() - (settings.httpIntervalSeconds * 1000);
+  unsigned long tsIntervalSeconds = CloudConfig::THINGSPEAK_DEFAULT_INTERVAL_SEC;
+  unsigned long bfIntervalMinutes = CloudConfig::BREWFATHER_DEFAULT_INTERVAL_MIN;
+  unsigned long httpIntervalSeconds = CloudConfig::CUSTOM_HTTP_DEFAULT_INTERVAL_SEC;
+  if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+    tsIntervalSeconds = settings.tsIntervalSeconds;
+    bfIntervalMinutes = settings.bfIntervalMinutes;
+    httpIntervalSeconds = settings.httpIntervalSeconds;
+    xSemaphoreGive(runtimeState.settingsMutex);
+  }
+  lastThingSpeakTime = millis() - (tsIntervalSeconds * 1000);
+  lastBrewfatherTime = millis() - (bfIntervalMinutes * 60000);
+  lastCustomHTTPTime = millis() - (httpIntervalSeconds * 1000);
 }
 
 void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, float temp) {
-  if (!settings.tsEnabled) return;
+  bool tsEnabled = false;
+  unsigned long tsIntervalSeconds = CloudConfig::THINGSPEAK_DEFAULT_INTERVAL_SEC;
+  bool useTempSensor = true;
+  String tsApiKey;
+  if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+    tsEnabled = settings.tsEnabled;
+    tsIntervalSeconds = settings.tsIntervalSeconds;
+    useTempSensor = settings.useTempSensor;
+    tsApiKey = settings.tsApiKey;
+    xSemaphoreGive(runtimeState.settingsMutex);
+  }
+
+  if (!tsEnabled) return;
   unsigned long currentMillis = millis();
-  if (currentMillis - lastThingSpeakTime < (settings.tsIntervalSeconds * 1000)) {
+  if (currentMillis - lastThingSpeakTime < (tsIntervalSeconds * 1000)) {
     return;
   }
   lastThingSpeakTime = currentMillis;
@@ -33,18 +57,18 @@ void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, floa
     Serial.print("[ThingSpeak] Отправка -> V: "); Serial.print(voltage);
     Serial.print("V, P(PSI): "); Serial.print(pressure);
     Serial.print(", P(Bar): "); Serial.print(pressureBar); 
-    if (settings.useTempSensor) {
+    if (useTempSensor) {
       Serial.print(" Bar, T: "); Serial.print(temp); Serial.println(" C");
     } else {
       Serial.println(" Bar");
     }
 
-    String url = "/update?api_key=" + settings.tsApiKey + 
+    String url = "/update?api_key=" + tsApiKey + 
                  "&field1=" + String(voltage, 3) + 
                  "&field2=" + String(pressure, 2) +
                  "&field3=" + String(pressureBar, 2);
     
-    if (settings.useTempSensor) {
+    if (useTempSensor) {
         url += "&field4=" + String(temp, 2);
     }
 
@@ -62,9 +86,23 @@ void sendDataToThingSpeak(float voltage, float pressure, float pressureBar, floa
 }
 
 void sendDataToBrewfather(float voltage, float pressure, float temp) {
-  if (!settings.bfEnabled) return;
+  bool bfEnabled = false;
+  unsigned long bfIntervalMinutes = CloudConfig::BREWFATHER_DEFAULT_INTERVAL_MIN;
+  bool useTempSensor = true;
+  String bfDeviceName;
+  String bfStreamId;
+  if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+    bfEnabled = settings.bfEnabled;
+    bfIntervalMinutes = settings.bfIntervalMinutes;
+    useTempSensor = settings.useTempSensor;
+    bfDeviceName = settings.bfDeviceName;
+    bfStreamId = settings.bfStreamId;
+    xSemaphoreGive(runtimeState.settingsMutex);
+  }
+
+  if (!bfEnabled) return;
   unsigned long currentMillis = millis();
-  if (currentMillis - lastBrewfatherTime < (settings.bfIntervalMinutes * 60000)) {
+  if (currentMillis - lastBrewfatherTime < (bfIntervalMinutes * 60000)) {
     return;
   }
   lastBrewfatherTime = currentMillis;
@@ -76,7 +114,7 @@ void sendDataToBrewfather(float voltage, float pressure, float temp) {
   if (client.connect(CloudConfig::BREWFATHER_SERVER, CloudConfig::BREWFATHER_PORT)) {
     Serial.print("[Brewfather] Отправка -> V: "); Serial.print(voltage);
     Serial.print("V, P: "); Serial.print(pressure); 
-    if (settings.useTempSensor) {
+    if (useTempSensor) {
         Serial.print(" PSI, T: "); Serial.print(temp); Serial.println(" C");
     } else {
         Serial.println(" PSI");
@@ -88,16 +126,16 @@ void sendDataToBrewfather(float voltage, float pressure, float temp) {
     String jsonBody;
     jsonBody.reserve(200);
     jsonBody += "{";
-    jsonBody += "\"name\":\"" + settings.bfDeviceName + "\",";
+    jsonBody += "\"name\":\"" + bfDeviceName + "\",";
     jsonBody += "\"pressure\":" + String(pressure, 2) + ",";
     jsonBody += "\"pressure_unit\":\"PSI\",";
-    if (settings.useTempSensor) {
+    if (useTempSensor) {
         jsonBody += "\"temp\":" + String(temp, 2) + ",";
         jsonBody += "\"temp_unit\":\"C\",";
     }
     jsonBody += "\"battery\":" + String(voltage, 2) + ",";
     jsonBody += "\"comment\":\"Voltage: " + String(voltage, 2) + "V";
-    if (settings.useTempSensor) {
+    if (useTempSensor) {
         jsonBody += ", Temp: " + String(temp, 2) + "C";
     }
     jsonBody += "\"";
@@ -109,7 +147,7 @@ void sendDataToBrewfather(float voltage, float pressure, float temp) {
 
     String httpRequest;
     httpRequest.reserve(300);
-    httpRequest += "POST /stream?id=" + settings.bfStreamId + " HTTP/1.1\r\n";
+    httpRequest += "POST /stream?id=" + bfStreamId + " HTTP/1.1\r\n";
     httpRequest += "Host: " + String(CloudConfig::BREWFATHER_SERVER) + "\r\n";
     httpRequest += "Content-Type: application/json\r\n";
     httpRequest += "Content-Length: " + String(contentLength) + "\r\n";
@@ -135,18 +173,32 @@ String replacePlaceholders(String text, float voltage, float pressure, float pre
 }
 
 void sendDataViaCustomHTTP(float voltage, float pressure, float pressureBar, float temp) {
-  if (!settings.httpEnabled || settings.httpServer.isEmpty()) {
+  bool httpEnabled = false;
+  String httpServer;
+  String httpPath;
+  String httpBodyTemplate;
+  unsigned long httpIntervalSeconds = CloudConfig::CUSTOM_HTTP_DEFAULT_INTERVAL_SEC;
+  if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+    httpEnabled = settings.httpEnabled;
+    httpServer = settings.httpServer;
+    httpPath = settings.httpPath;
+    httpBodyTemplate = settings.httpBodyTemplate;
+    httpIntervalSeconds = settings.httpIntervalSeconds;
+    xSemaphoreGive(runtimeState.settingsMutex);
+  }
+
+  if (!httpEnabled || httpServer.isEmpty()) {
     return;
   }
 
   unsigned long currentMillis = millis();
-  if (currentMillis - lastCustomHTTPTime < (settings.httpIntervalSeconds * 1000)) {
+  if (currentMillis - lastCustomHTTPTime < (httpIntervalSeconds * 1000)) {
     return;
   }
   lastCustomHTTPTime = currentMillis;
 
-  String serverInput = settings.httpServer;
-  String pathInput = settings.httpPath;
+  String serverInput = httpServer;
+  String pathInput = httpPath;
   if (pathInput.length() == 0) {
     pathInput = "/";
   }
@@ -173,7 +225,7 @@ void sendDataViaCustomHTTP(float voltage, float pressure, float pressureBar, flo
   }
 
   String finalPath = replacePlaceholders(pathInput, voltage, pressure, pressureBar, temp);
-  String finalBody = replacePlaceholders(settings.httpBodyTemplate, voltage, pressure, pressureBar, temp);
+  String finalBody = replacePlaceholders(httpBodyTemplate, voltage, pressure, pressureBar, temp);
 
   httpClient.stop();
   Serial.println("\n[HTTP] Подключение к серверу...");

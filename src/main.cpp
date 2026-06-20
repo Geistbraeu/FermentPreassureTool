@@ -44,7 +44,7 @@ void setup() {
 
   // Настройка АЦП и чтение калибровки из eFuse
   analogSetAttenuation(ADC_11db);
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, SensorConfig::ADC_VREF, &runtimeState.adc_chars);
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, SensorConfig::ADC_VREF, &runtimeState.adc_chars);
 
   // Инициализация OLED
   if(display.begin(SSD1306_SWITCHCAPVCC, DisplayConfig::OLED_I2C_ADDRESS)) {
@@ -67,10 +67,10 @@ void setup() {
   digitalWrite(HardwareConfig::SOLENOID_PIN, LOW);
 
   // Инициализация mDNS
-  if (!MDNS.begin("ferment01")) {
+  if (!MDNS.begin(NetworkConfig::HOSTNAME)) {
     Serial.println("mDNS ERROR");
   } else {
-    Serial.println("mDNS responder started: ferment01.local");
+    Serial.println("mDNS responder started: " + String(NetworkConfig::HOSTNAME) + ".local");
     MDNS.addService("http", "tcp", NetworkConfig::WEBSERVER_PORT);
   }
  
@@ -84,6 +84,13 @@ void setup() {
 
   // Создаем мьютекс для защиты общих данных
   runtimeState.dataMutex = xSemaphoreCreateMutex();
+  runtimeState.settingsMutex = xSemaphoreCreateMutex();
+  if (runtimeState.dataMutex == NULL || runtimeState.settingsMutex == NULL) {
+    Serial.println("FATAL: mutex creation failed");
+    for (;;) {
+      delay(1000);
+    }
+  }
 
   // Инициализация веб-сервера
   initWebServer();
@@ -139,14 +146,30 @@ float readTemperature(bool isEnabled) {
     return 0.0;
   }
 
-  t = t - settings.tempOffset;
+  float tempOffset = 0.0f;
+  if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+    tempOffset = settings.tempOffset;
+    xSemaphoreGive(runtimeState.settingsMutex);
+  }
+
+  t = t - tempOffset;
   runtimeState.isTempSensorConnected = true;
   return t;
 }
 
 void processSampledData() {
+  bool useTempSensor = false;
+  float maxPressureThreshold = 0.0f;
+  float hysteresis = 0.0f;
+  if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+    useTempSensor = settings.useTempSensor;
+    maxPressureThreshold = settings.maxPressureThreshold;
+    hysteresis = settings.hysteresis;
+    xSemaphoreGive(runtimeState.settingsMutex);
+  }
+
   float t = 0.0;
-  if (settings.useTempSensor) {
+  if (useTempSensor) {
     t = readTemperature(true);
   } else {
     runtimeState.isTempSensorConnected = false;
@@ -159,16 +182,17 @@ void processSampledData() {
       runtimeState.currentTemp = t;
       runtimeState.isDataReady = true;
 
-      if (runtimeState.manualOverride && (millis() - runtimeState.manualStartTime > ControlConfig::MANUAL_OVERRIDE_TIMEOUT_MS)) {
+        if (runtimeState.manualOverride &&
+          (unsigned long)(millis() - runtimeState.manualStartTime) > ControlConfig::MANUAL_OVERRIDE_TIMEOUT_MS) {
           runtimeState.manualOverride = false;
       }
 
       if (runtimeState.manualOverride) {
           digitalWrite(HardwareConfig::SOLENOID_PIN, runtimeState.manualOn ? HIGH : LOW);
       } else {
-          if (runtimeState.currentPressure > settings.maxPressureThreshold) {
+            if (runtimeState.currentPressure > maxPressureThreshold) {
               digitalWrite(HardwareConfig::SOLENOID_PIN, HIGH);
-          } else if (runtimeState.currentPressure < (settings.maxPressureThreshold - settings.hysteresis)) {
+            } else if (runtimeState.currentPressure < (maxPressureThreshold - hysteresis)) {
               digitalWrite(HardwareConfig::SOLENOID_PIN, LOW);
           }
       }
@@ -183,7 +207,18 @@ void sensorTask(void *pvParameters) {
   unsigned long lastProcessAt = 0;
 
   for (;;) {
-    unsigned int sampleCount = settings.medianSampleCount;
+    unsigned int sampleCount = ControlConfig::DEFAULT_MEDIAN_SAMPLE_COUNT;
+    unsigned long medianSampleDelayMs = ControlConfig::DEFAULT_MEDIAN_SAMPLE_DELAY_MS;
+    unsigned long updateIntervalMs = ControlConfig::DEFAULT_UPDATE_INTERVAL_MS;
+    float offsetVoltage = SensorConfig::PRESSURE_OFFSET_DEFAULT;
+    if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+      sampleCount = settings.medianSampleCount;
+      medianSampleDelayMs = settings.medianSampleDelayMs;
+      updateIntervalMs = settings.updateIntervalMs;
+      offsetVoltage = settings.offsetVoltage;
+      xSemaphoreGive(runtimeState.settingsMutex);
+    }
+
     if (sampleCount < ControlConfig::MIN_MEDIAN_SAMPLES) sampleCount = ControlConfig::MIN_MEDIAN_SAMPLES;
     if (sampleCount > ControlConfig::MAX_MEDIAN_SAMPLES) sampleCount = ControlConfig::MAX_MEDIAN_SAMPLES;
     if ((sampleCount % 2) == 0) {
@@ -194,7 +229,7 @@ void sensorTask(void *pvParameters) {
     // 1. Сбор данных для медианного фильтра
     for (unsigned int i = 0; i < sampleCount; i++) {
       samples[i] = analogRead(sensorPin);
-      vTaskDelay(pdMS_TO_TICKS(settings.medianSampleDelayMs));
+      vTaskDelay(pdMS_TO_TICKS(medianSampleDelayMs));
     }
 
     // 2. Простая сортировка (пузырек) для нахождения медианы
@@ -215,8 +250,8 @@ void sensorTask(void *pvParameters) {
     float vSensor = vMeasured * SensorConfig::ADC_VOLTAGE_DIVIDER;
 
     float p = 0.0;
-    if (vSensor > settings.offsetVoltage) {
-      p = (vSensor - settings.offsetVoltage) * SensorConfig::PRESSURE_PSI_RANGE / SensorConfig::PRESSURE_VOLTAGE_RANGE;
+    if (vSensor > offsetVoltage) {
+      p = (vSensor - offsetVoltage) * SensorConfig::PRESSURE_PSI_RANGE / SensorConfig::PRESSURE_VOLTAGE_RANGE;
     }
 
     // 4. Непрерывно публикуем фильтрованные значения в RuntimeState
@@ -229,7 +264,7 @@ void sensorTask(void *pvParameters) {
 
     // 5. Периодическая обработка sampled данных по updateIntervalMs
     unsigned long now = millis();
-    if (lastProcessAt == 0 || (now - lastProcessAt) >= settings.updateIntervalMs) {
+    if (lastProcessAt == 0 || (now - lastProcessAt) >= updateIntervalMs) {
       processSampledData();
       lastProcessAt = now;
     }
@@ -274,12 +309,25 @@ void networkTask(void *pvParameters) {
     } else {
         Serial.println("[Сетевая задача] Ожидание первых данных от сенсора...");
     }
-    vTaskDelay(pdMS_TO_TICKS(settings.updateIntervalMs));
+    unsigned long updateIntervalMs = ControlConfig::DEFAULT_UPDATE_INTERVAL_MS;
+    if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+      updateIntervalMs = settings.updateIntervalMs;
+      xSemaphoreGive(runtimeState.settingsMutex);
+    }
+    vTaskDelay(pdMS_TO_TICKS(updateIntervalMs));
   }
 }
 
 void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp) {
   if (!isOledConnected) return;
+
+  int pressureUnit = 0;
+  float maxPressureThreshold = 0.0f;
+  if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+    pressureUnit = settings.pressureUnit;
+    maxPressureThreshold = settings.maxPressureThreshold;
+    xSemaphoreGive(runtimeState.settingsMutex);
+  }
   
   display.clearDisplay();
 
@@ -287,12 +335,12 @@ void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(DisplayConfig::LAYOUT_X_LEFT, DisplayConfig::LAYOUT_Y_HOSTNAME);
-  display.print("ferment01");
+  display.print(NetworkConfig::HOSTNAME);
   
-  float pDisplay = (settings.pressureUnit == 0) ? (pressureBar / 0.0689476) : pressureBar;
-  String unitStr = (settings.pressureUnit == 0) ? "PSI" : "Bar";
+  float pDisplay = (pressureUnit == 0) ? (pressureBar / SensorConfig::PSI_TO_BAR) : pressureBar;
+  String unitStr = (pressureUnit == 0) ? "PSI" : "Bar";
   
-  float maxPVal = (settings.pressureUnit == 0) ? settings.maxPressureThreshold : (settings.maxPressureThreshold * 0.0689476);
+  float maxPVal = (pressureUnit == 0) ? maxPressureThreshold : (maxPressureThreshold * SensorConfig::PSI_TO_BAR);
   String maxPStr = String(maxPVal, 1) + " " + unitStr;
   
   int16_t x1, y1; uint16_t w, h;

@@ -19,6 +19,7 @@ struct RuntimeState {
     bool isDataReady = false;
     bool isTempSensorConnected = false;
     SemaphoreHandle_t dataMutex = NULL;
+    SemaphoreHandle_t settingsMutex = NULL;
     esp_adc_cal_characteristics_t adc_chars{};
 };
 
