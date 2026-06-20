@@ -7,35 +7,35 @@ WifiSettings wifiSettings;
 void Settings::saveFloat(const String& key, float value) {
     Preferences prefs;
     prefs.begin("config", false);
-    prefs.putFloat(key, value);
+    prefs.putFloat(key.c_str(), value);
     prefs.end();
 }
 
 void Settings::saveInt(const String& key, int value) {
     Preferences prefs;
     prefs.begin("config", false);
-    prefs.putInt(key, value);
+    prefs.putInt(key.c_str(), value);
     prefs.end();
 }
 
 void Settings::saveULong(const String& key, unsigned long value) {
     Preferences prefs;
     prefs.begin("config", false);
-    prefs.putULong(key, value);
+    prefs.putULong(key.c_str(), value);
     prefs.end();
 }
 
 void Settings::saveBool(const String& key, bool value) {
     Preferences prefs;
     prefs.begin("config", false);
-    prefs.putBool(key, value);
+    prefs.putBool(key.c_str(), value);
     prefs.end();
 }
 
 void Settings::saveString(const String& key, const String& value) {
     Preferences prefs;
     prefs.begin("config", false);
-    prefs.putString(key, value);
+    prefs.putString(key.c_str(), value.c_str());
     prefs.end();
 }
 
@@ -49,6 +49,7 @@ void Settings::load() {
     tsIntervalSeconds = prefs.getULong("tsInterval", 120);
     bfIntervalMinutes = prefs.getULong("bfInterval", 15);
     offsetVoltage = prefs.getFloat("offsetVoltage", 0.515);
+    tempOffset = prefs.getFloat("tempOffset", 0.5);
     useTempSensor = prefs.getBool("useTemp", true);
     tsApiKey = prefs.getString("tsApiKey", "DEXTOPQCD39G16GW");
     bfStreamId = prefs.getString("bfStreamId", "b8wwXJ3xdW3B8h");
@@ -96,6 +97,11 @@ void Settings::setBfIntervalMinutes(unsigned long val) {
 void Settings::setOffsetVoltage(float val) {
     offsetVoltage = val;
     saveFloat("offsetVoltage", val);
+}
+
+void Settings::setTempOffset(float val) {
+    tempOffset = val;
+    saveFloat("tempOffset", val);
 }
 
 void Settings::setUseTempSensor(bool val) {

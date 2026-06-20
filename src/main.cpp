@@ -11,6 +11,7 @@
 #include "web_server.h"
 #include "CloudManager.h"
 #include "Settings.h"
+#include "RuntimeState.h"
 
 // Настройки OLED
 #define SCREEN_WIDTH 128
@@ -35,17 +36,7 @@ Adafruit_MAX31865 tempSensor = Adafruit_MAX31865(MAX31865_CS_PIN, 23, 19, 18);
 const int sensorPin = 34;        // ADC1_CH6 (GPIO 34) - хороший выбор для ESP32
 
 // Глобальные переменные для обмена данными между ядрами
-float currentVoltage = 0.0;
-float currentPressure = 0.0;
-float currentTemp = 0.0;
-float tempOffset = 0.5;      // Смещение температуры для компенсации сопротивления проводов (в °C)
-bool manualOverride = false;
-bool manualOn = false;
-unsigned long manualStartTime = 0;
-bool isDataReady = false;
-bool isTempSensorConnected = false;
-SemaphoreHandle_t dataMutex; 
-esp_adc_cal_characteristics_t adc_chars;
+RuntimeState runtimeState;
 
 // Прототипы функций
 void updateDisplay(String ipStatus, float voltage, float pressureBar, float temp);
@@ -58,7 +49,7 @@ void setup() {
 
   // Настройка АЦП и чтение калибровки из eFuse
   analogSetAttenuation(ADC_11db); // Используем ADC_11db, так как ADC_12db еще не объявлена в HAL
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, 1100, &adc_chars);
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, 1100, &runtimeState.adc_chars);
 
   // Инициализация OLED
   if(display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -100,7 +91,7 @@ void setup() {
 
 
   // Создаем мьютекс для защиты общих данных
-  dataMutex = xSemaphoreCreateMutex();
+  runtimeState.dataMutex = xSemaphoreCreateMutex();
 
   // Инициализация веб-сервера
   initWebServer();
@@ -138,7 +129,7 @@ void loop() {
 // --- Логика сенсора температуры ---
 float readTemperature(bool isEnabled) {
   if (!isEnabled) {
-    isTempSensorConnected = false;
+    runtimeState.isTempSensorConnected = false;
     return 0.0;
   }
 
@@ -146,18 +137,18 @@ float readTemperature(bool isEnabled) {
   if (fault) {
     Serial.print("MAX31865 Fault: "); Serial.println(fault);
     tempSensor.clearFault();
-    isTempSensorConnected = false;
+    runtimeState.isTempSensorConnected = false;
     return 0.0;
   }
 
   float t = tempSensor.temperature(RNOMINAL, RREF);
   if (t < -100.0) {
-    isTempSensorConnected = false;
+    runtimeState.isTempSensorConnected = false;
     return 0.0;
   }
 
-  t = t - tempOffset;
-  isTempSensorConnected = true;
+  t = t - settings.tempOffset;
+  runtimeState.isTempSensorConnected = true;
   return t;
 }
 
@@ -186,7 +177,7 @@ void sensorTask(void *pvParameters) {
     int medianRaw = samples[numSamples / 2];
 
     // 3. Расчет значений давления
-    uint32_t voltage_mv = esp_adc_cal_raw_to_voltage(medianRaw, &adc_chars);
+    uint32_t voltage_mv = esp_adc_cal_raw_to_voltage(medianRaw, &runtimeState.adc_chars);
     float vMeasured = voltage_mv / 1000.0;
     float vSensor = vMeasured * 1.4545;
 
@@ -200,31 +191,31 @@ void sensorTask(void *pvParameters) {
     if (settings.useTempSensor) {
       t = readTemperature(true);
     } else {
-      isTempSensorConnected = false;
+      runtimeState.isTempSensorConnected = false;
     }
 
     // 5. Сохранение в общие переменные с блокировкой мьютекса
-    if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-      currentVoltage = vSensor;
-      currentPressure = p;
-      currentTemp = t; // Сохраняем температуру
-      isDataReady = true;
+    if (xSemaphoreTake(runtimeState.dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+      runtimeState.currentVoltage = vSensor;
+      runtimeState.currentPressure = p;
+      runtimeState.currentTemp = t; // Сохраняем температуру
+      runtimeState.isDataReady = true;
 
       // Логика управления клапаном
-      if (manualOverride && (millis() - manualStartTime > 10000)) {
-          manualOverride = false;
+      if (runtimeState.manualOverride && (millis() - runtimeState.manualStartTime > 10000)) {
+          runtimeState.manualOverride = false;
       }
       
-      if (manualOverride) {
-          digitalWrite(SOLENOID_PIN, manualOn ? HIGH : LOW);
+      if (runtimeState.manualOverride) {
+          digitalWrite(SOLENOID_PIN, runtimeState.manualOn ? HIGH : LOW);
       } else {
-          if (currentPressure > settings.maxPressureThreshold) {
+          if (runtimeState.currentPressure > settings.maxPressureThreshold) {
               digitalWrite(SOLENOID_PIN, HIGH);
-          } else if (currentPressure < (settings.maxPressureThreshold - settings.hysteresis)) {
+          } else if (runtimeState.currentPressure < (settings.maxPressureThreshold - settings.hysteresis)) {
               digitalWrite(SOLENOID_PIN, LOW);
           }
       }
-      xSemaphoreGive(dataMutex);
+      xSemaphoreGive(runtimeState.dataMutex);
     }
 
     vTaskDelay(pdMS_TO_TICKS(settings.sensorInterval));
@@ -245,12 +236,12 @@ void networkTask(void *pvParameters) {
     }
 
     // Получаем копию данных и статус готовности
-    if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-      vLocal = currentVoltage;
-      pLocal = currentPressure;
-      tLocal = currentTemp;
-      ready = isDataReady;
-      xSemaphoreGive(dataMutex);
+    if (xSemaphoreTake(runtimeState.dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+      vLocal = runtimeState.currentVoltage;
+      pLocal = runtimeState.currentPressure;
+      tLocal = runtimeState.currentTemp;
+      ready = runtimeState.isDataReady;
+      xSemaphoreGive(runtimeState.dataMutex);
     }
 
     // Обновление дисплея

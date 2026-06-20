@@ -7,7 +7,7 @@
 String getHtml(float pPsi, float pBar, float v, bool mOverride, bool mOn, unsigned long mStart,
                float maxPressureThreshold, int pressureUnit, float hysteresis,
                unsigned long sensorInterval, unsigned long tsIntervalSeconds,
-               unsigned long bfIntervalMinutes, float offsetVoltage, bool useTempSensor,
+               unsigned long bfIntervalMinutes, float offsetVoltage, float tempOffset, bool useTempSensor,
                const String& tsApiKey, const String& bfStreamId, const String& bfDeviceName,
                bool tsEnabled, bool bfEnabled,
                bool httpEnabled, const String& httpServer, const String& httpPath,
@@ -379,6 +379,18 @@ String getHtml(float pPsi, float pBar, float v, bool mOverride, bool mOn, unsign
           <div class="setting-row">
             <input type="number" step="0.001" name="offset" value=")rawhtml";
     html += String(offsetVoltage, 3);
+    html += R"rawhtml(">
+            <button class="btn-set" type="submit">Set</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Temperature Offset (°C)</label>
+        <form action="/api" method="POST">
+          <div class="setting-row">
+            <input type="number" step="0.1" name="tempOffset" value=")rawhtml";
+    html += String(tempOffset, 1);
     html += R"rawhtml(">
             <button class="btn-set" type="submit">Set</button>
           </div>

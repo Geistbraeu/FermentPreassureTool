@@ -14,5 +14,15 @@
         "--header-insertion=never",
         "--query-driver=C:/Users/GhostDemon/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-g++",
         "--fallback-style=none"
-    ]
+    ],
+    "chat.tools.terminal.autoApprove": {
+        "/^C:\\\\Users\\\\GhostDemon\\\\\\.platformio\\\\penv\\\\Scripts\\\\platformio\\.exe run$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^& \"C:\\\\Users\\\\GhostDemon\\\\\\.platformio\\\\penv\\\\Scripts\\\\platformio\\.exe\" run$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
 }

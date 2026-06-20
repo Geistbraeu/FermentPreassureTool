@@ -5,15 +5,9 @@
 #include "web_server.h"
 #include "html_template.h"
 #include "Settings.h"
+#include "RuntimeState.h"
 
-extern float currentVoltage;
-extern float currentPressure;
-extern SemaphoreHandle_t dataMutex;
-extern bool manualOverride;
-extern bool manualOn;
-extern unsigned long manualStartTime;
-
-
+extern RuntimeState runtimeState;
 
 WebServer server(80);
 
@@ -21,19 +15,19 @@ void handleRoot() {
     float p = 0.0, v = 0.0;
     bool mOverride = false, mOn = false;
     unsigned long mStart = 0;
-    if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        p = currentPressure;
-        v = currentVoltage;
-        mOverride = manualOverride;
-        mOn = manualOn;
-        mStart = manualStartTime;
-        xSemaphoreGive(dataMutex);
+    if (xSemaphoreTake(runtimeState.dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        p = runtimeState.currentPressure;
+        v = runtimeState.currentVoltage;
+        mOverride = runtimeState.manualOverride;
+        mOn = runtimeState.manualOn;
+        mStart = runtimeState.manualStartTime;
+        xSemaphoreGive(runtimeState.dataMutex);
     }
     
     server.send(200, "text/html", getHtml(p, p * 0.0689476, v, mOverride, mOn, mStart,
         settings.maxPressureThreshold, settings.pressureUnit, settings.hysteresis,
         settings.sensorInterval, settings.tsIntervalSeconds, settings.bfIntervalMinutes,
-        settings.offsetVoltage, settings.useTempSensor,
+        settings.offsetVoltage, settings.tempOffset, settings.useTempSensor,
         settings.tsApiKey, settings.bfStreamId, settings.bfDeviceName,
         settings.tsEnabled, settings.bfEnabled,
         settings.httpEnabled, settings.httpServer, settings.httpPath,
@@ -46,13 +40,13 @@ void handleApi() {
         float p = 0.0, v = 0.0;
         bool mOverride = false, mOn = false;
         unsigned long mStart = 0;
-        if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            p = currentPressure;
-            v = currentVoltage;
-            mOverride = manualOverride;
-            mOn = manualOn;
-            mStart = manualStartTime;
-            xSemaphoreGive(dataMutex);
+        if (xSemaphoreTake(runtimeState.dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            p = runtimeState.currentPressure;
+            v = runtimeState.currentVoltage;
+            mOverride = runtimeState.manualOverride;
+            mOn = runtimeState.manualOn;
+            mStart = runtimeState.manualStartTime;
+            xSemaphoreGive(runtimeState.dataMutex);
         }
         long remaining = -1;
         if (mOverride) {
@@ -74,11 +68,11 @@ void handleApi() {
         if (server.hasArg("cmd")) {
             String cmd = server.arg("cmd");
             if (cmd == "manual_on") {
-                manualOverride = true;
-                manualOn = true;
-                manualStartTime = millis();
+                runtimeState.manualOverride = true;
+                runtimeState.manualOn = true;
+                runtimeState.manualStartTime = millis();
             } else if (cmd == "manual_off") {
-                manualOverride = false;
+                runtimeState.manualOverride = false;
             }
         }
         if (server.hasArg("pressure")) {
@@ -112,6 +106,9 @@ void handleApi() {
         }
         if (server.hasArg("offset")) {
             settings.setOffsetVoltage(server.arg("offset").toFloat());
+        }
+        if (server.hasArg("tempOffset")) {
+            settings.setTempOffset(server.arg("tempOffset").toFloat());
         }
         if (server.hasArg("useTemp")) {
             settings.setUseTempSensor(server.arg("useTemp").toInt() == 1);

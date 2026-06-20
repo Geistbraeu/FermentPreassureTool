@@ -12,6 +12,7 @@ public:
     unsigned long tsIntervalSeconds;
     unsigned long bfIntervalMinutes;
     float offsetVoltage;
+    float tempOffset;
     bool useTempSensor;
 
     // Cloud credentials
@@ -39,6 +40,7 @@ public:
     void setTsIntervalSeconds(unsigned long val);
     void setBfIntervalMinutes(unsigned long val);
     void setOffsetVoltage(float val);
+    void setTempOffset(float val);
     void setUseTempSensor(bool val);
     void setTsApiKey(const String& val);
     void setBfStreamId(const String& val);
