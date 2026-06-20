@@ -13,10 +13,15 @@ extern RuntimeState runtimeState;
 
 WebServer server(80);
 
-void handleRoot() {
-    float p = 0.0, v = 0.0;
-    bool mOverride = false, mOn = false;
-    unsigned long mStart = 0;
+struct RuntimeSnapshot {
+    float pressure = 0.0f;
+    float voltage = 0.0f;
+    bool manualOverride = false;
+    bool manualOn = false;
+    unsigned long manualStartTime = 0;
+};
+
+struct SettingsSnapshot {
     float maxPressureThreshold = 0.0f;
     int pressureUnit = 0;
     float hysteresis = 0.0f;
@@ -38,103 +43,110 @@ void handleRoot() {
     String httpPath = "/";
     String httpBodyTemplate;
     unsigned long httpIntervalSeconds = CloudConfig::CUSTOM_HTTP_DEFAULT_INTERVAL_SEC;
-    String devName = wifiSettings.devName;
+    String devName;
+};
 
-    if (xSemaphoreTake(runtimeState.dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        p = runtimeState.currentPressure;
-        v = runtimeState.currentVoltage;
-        mOverride = runtimeState.manualOverride;
-        mOn = runtimeState.manualOn;
-        mStart = runtimeState.manualStartTime;
+static RuntimeSnapshot readRuntimeSnapshot() {
+    RuntimeSnapshot snapshot;
+    if (xSemaphoreTake(runtimeState.dataMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+        snapshot.pressure = runtimeState.currentPressure;
+        snapshot.voltage = runtimeState.currentVoltage;
+        snapshot.manualOverride = runtimeState.manualOverride;
+        snapshot.manualOn = runtimeState.manualOn;
+        snapshot.manualStartTime = runtimeState.manualStartTime;
         xSemaphoreGive(runtimeState.dataMutex);
     }
+    return snapshot;
+}
+
+static SettingsSnapshot readSettingsSnapshot() {
+    SettingsSnapshot snapshot;
+    snapshot.devName = wifiSettings.devName;
 
     if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-        maxPressureThreshold = settings.maxPressureThreshold;
-        pressureUnit = settings.pressureUnit;
-        hysteresis = settings.hysteresis;
-        updateIntervalMs = settings.updateIntervalMs;
-        medianSampleCount = settings.medianSampleCount;
-        medianSampleDelayMs = settings.medianSampleDelayMs;
-        tsIntervalSeconds = settings.tsIntervalSeconds;
-        bfIntervalMinutes = settings.bfIntervalMinutes;
-        offsetVoltage = settings.offsetVoltage;
-        tempOffset = settings.tempOffset;
-        useTempSensor = settings.useTempSensor;
-        tsApiKey = settings.tsApiKey;
-        bfStreamId = settings.bfStreamId;
-        bfDeviceName = settings.bfDeviceName;
-        tsEnabled = settings.tsEnabled;
-        bfEnabled = settings.bfEnabled;
-        httpEnabled = settings.httpEnabled;
-        httpServer = settings.httpServer;
-        httpPath = settings.httpPath;
-        httpBodyTemplate = settings.httpBodyTemplate;
-        httpIntervalSeconds = settings.httpIntervalSeconds;
-        devName = wifiSettings.devName;
+        snapshot.maxPressureThreshold = settings.maxPressureThreshold;
+        snapshot.pressureUnit = settings.pressureUnit;
+        snapshot.hysteresis = settings.hysteresis;
+        snapshot.updateIntervalMs = settings.updateIntervalMs;
+        snapshot.medianSampleCount = settings.medianSampleCount;
+        snapshot.medianSampleDelayMs = settings.medianSampleDelayMs;
+        snapshot.tsIntervalSeconds = settings.tsIntervalSeconds;
+        snapshot.bfIntervalMinutes = settings.bfIntervalMinutes;
+        snapshot.offsetVoltage = settings.offsetVoltage;
+        snapshot.tempOffset = settings.tempOffset;
+        snapshot.useTempSensor = settings.useTempSensor;
+        snapshot.tsApiKey = settings.tsApiKey;
+        snapshot.bfStreamId = settings.bfStreamId;
+        snapshot.bfDeviceName = settings.bfDeviceName;
+        snapshot.tsEnabled = settings.tsEnabled;
+        snapshot.bfEnabled = settings.bfEnabled;
+        snapshot.httpEnabled = settings.httpEnabled;
+        snapshot.httpServer = settings.httpServer;
+        snapshot.httpPath = settings.httpPath;
+        snapshot.httpBodyTemplate = settings.httpBodyTemplate;
+        snapshot.httpIntervalSeconds = settings.httpIntervalSeconds;
+        snapshot.devName = wifiSettings.devName;
         xSemaphoreGive(runtimeState.settingsMutex);
     }
+    return snapshot;
+}
+
+void handleRoot() {
+    RuntimeSnapshot runtime = readRuntimeSnapshot();
+    SettingsSnapshot cfg = readSettingsSnapshot();
     
-    server.send(200, "text/html", getHtml(p, p * SensorConfig::PSI_TO_BAR, v, mOverride, mOn, mStart,
-        maxPressureThreshold, pressureUnit, hysteresis,
-        updateIntervalMs, medianSampleCount, medianSampleDelayMs,
-        tsIntervalSeconds, bfIntervalMinutes,
-        offsetVoltage, tempOffset, useTempSensor,
-        tsApiKey, bfStreamId, bfDeviceName,
-        tsEnabled, bfEnabled,
-        httpEnabled, httpServer, httpPath,
-        httpBodyTemplate, httpIntervalSeconds,
-        devName));
+    server.send(200, "text/html", getHtml(runtime.pressure, runtime.pressure * SensorConfig::PSI_TO_BAR, runtime.voltage,
+        runtime.manualOverride, runtime.manualOn, runtime.manualStartTime,
+        cfg.maxPressureThreshold, cfg.pressureUnit, cfg.hysteresis,
+        cfg.updateIntervalMs, cfg.medianSampleCount, cfg.medianSampleDelayMs,
+        cfg.tsIntervalSeconds, cfg.bfIntervalMinutes,
+        cfg.offsetVoltage, cfg.tempOffset, cfg.useTempSensor,
+        cfg.tsApiKey, cfg.bfStreamId, cfg.bfDeviceName,
+        cfg.tsEnabled, cfg.bfEnabled,
+        cfg.httpEnabled, cfg.httpServer, cfg.httpPath,
+        cfg.httpBodyTemplate, cfg.httpIntervalSeconds,
+        cfg.devName));
 }
 
 void handleApi() {
     if (server.method() == HTTP_GET) {
-        float p = 0.0, v = 0.0;
-        bool mOverride = false, mOn = false;
-        unsigned long mStart = 0;
-        if (xSemaphoreTake(runtimeState.dataMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            p = runtimeState.currentPressure;
-            v = runtimeState.currentVoltage;
-            mOverride = runtimeState.manualOverride;
-            mOn = runtimeState.manualOn;
-            mStart = runtimeState.manualStartTime;
-            xSemaphoreGive(runtimeState.dataMutex);
-        }
+        RuntimeSnapshot runtime = readRuntimeSnapshot();
+        SettingsSnapshot cfg = readSettingsSnapshot();
+
         long remaining = -1;
-        if (mOverride) {
-            remaining = 10000L - (long)(millis() - mStart);
+        if (runtime.manualOverride) {
+            remaining = 10000L - (long)(millis() - runtime.manualStartTime);
             if (remaining < 0) remaining = 0;
         }
-        
-        float maxPressureThreshold = 0.0f;
-        int pressureUnit = 0;
-        float offsetVoltage = SensorConfig::PRESSURE_OFFSET_DEFAULT;
-        bool useTempSensor = true;
-        if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-            maxPressureThreshold = settings.maxPressureThreshold;
-            pressureUnit = settings.pressureUnit;
-            offsetVoltage = settings.offsetVoltage;
-            useTempSensor = settings.useTempSensor;
-            xSemaphoreGive(runtimeState.settingsMutex);
-        }
 
-        String json = "{\"pressure\":" + String(p, 2) + 
-                       ",\"voltage\":" + String(v, 2) + 
-                       ",\"maxPressure\":" + String(maxPressureThreshold, 2) + 
-                       ",\"pressureUnit\":" + String(pressureUnit) +
-                       ",\"offsetVoltage\":" + String(offsetVoltage, 3) + 
-                       ",\"useTempSensor\":" + (useTempSensor ? "true" : "false") +
-                       ",\"manualOverride\":" + (mOverride ? "true" : "false") +
-                       ",\"manualOn\":" + (mOn ? "true" : "false") +
+        String json = "{\"pressure\":" + String(runtime.pressure, 2) + 
+                       ",\"voltage\":" + String(runtime.voltage, 2) + 
+                       ",\"maxPressure\":" + String(cfg.maxPressureThreshold, 2) + 
+                       ",\"pressureUnit\":" + String(cfg.pressureUnit) +
+                       ",\"offsetVoltage\":" + String(cfg.offsetVoltage, 3) + 
+                       ",\"useTempSensor\":" + (cfg.useTempSensor ? "true" : "false") +
+                       ",\"manualOverride\":" + (runtime.manualOverride ? "true" : "false") +
+                       ",\"manualOn\":" + (runtime.manualOn ? "true" : "false") +
                        ",\"remainingTime\":" + String(remaining) + "}";
         server.send(200, "application/json", json);
     } else if (server.method() == HTTP_POST) {
-        String errors = "";
+        String errorsJson = "";
         bool hasErrors = false;
 
-        auto appendSaveError = [&](const char* fieldName) {
-            errors += String(fieldName) + " save failed,";
+        auto addError = [&](const String& field, const String& message) {
+            if (hasErrors) {
+                errorsJson += ",";
+            }
+            errorsJson += "{\"field\":\"" + field + "\",\"message\":\"" + message + "\"}";
             hasErrors = true;
+        };
+
+        auto saveFailed = [&](const char* fieldName) {
+            addError(fieldName, "save_failed");
+        };
+
+        auto lockFailed = [&](const char* lockName) {
+            addError(lockName, "mutex_timeout");
         };
         
         if (server.hasArg("cmd")) {
@@ -148,18 +160,21 @@ void handleApi() {
                     runtimeState.manualOverride = false;
                 }
                 xSemaphoreGive(runtimeState.dataMutex);
+            } else {
+                lockFailed("dataMutex");
             }
         }
         
         if (server.hasArg("pressure")) {
             float val = server.arg("pressure").toFloat();
             if (!Validation::isValidPressure(val)) {
-                errors += "pressure invalid range (0.5-25.0),";
-                hasErrors = true;
+                addError("pressure", "invalid_range_0_5_25_0");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setMaxPressureThreshold(val)) appendSaveError("pressure");
+                    if (!settings.setMaxPressureThreshold(val)) saveFailed("pressure");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -167,8 +182,7 @@ void handleApi() {
         if (server.hasArg("devName")) {
             String newDevName = server.arg("devName");
             if (!Validation::isValidHostname(newDevName)) {
-                errors += "devName invalid,";
-                hasErrors = true;
+                addError("devName", "invalid_hostname");
             } else {
                 wifiSettings.save(wifiSettings.ssid, wifiSettings.pass, newDevName);
                 WiFi.setHostname(newDevName.c_str());
@@ -178,12 +192,13 @@ void handleApi() {
         if (server.hasArg("pUnit")) {
             int val = server.arg("pUnit").toInt();
             if (!Validation::isValidPressureUnit(val)) {
-                errors += "pUnit must be 0 or 1,";
-                hasErrors = true;
+                addError("pUnit", "must_be_0_or_1");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setPressureUnit(val)) appendSaveError("pUnit");
+                    if (!settings.setPressureUnit(val)) saveFailed("pUnit");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -191,12 +206,13 @@ void handleApi() {
         if (server.hasArg("hysteresis")) {
             float val = server.arg("hysteresis").toFloat();
             if (!Validation::isValidHysteresis(val)) {
-                errors += "hysteresis must be 0-2.0,";
-                hasErrors = true;
+                addError("hysteresis", "invalid_range_0_2_0");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setHysteresis(val)) appendSaveError("hysteresis");
+                    if (!settings.setHysteresis(val)) saveFailed("hysteresis");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -204,12 +220,13 @@ void handleApi() {
         if (server.hasArg("updateInterval")) {
             unsigned long val = server.arg("updateInterval").toInt();
             if (!Validation::isValidUpdateInterval(val)) {
-                errors += "updateInterval must be 50-5000ms,";
-                hasErrors = true;
+                addError("updateInterval", "invalid_range_50_5000");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setUpdateIntervalMs(val)) appendSaveError("updateInterval");
+                    if (!settings.setUpdateIntervalMs(val)) saveFailed("updateInterval");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -217,12 +234,13 @@ void handleApi() {
         if (server.hasArg("medianSampleCount")) {
             unsigned int val = server.arg("medianSampleCount").toInt();
             if (!Validation::isValidMedianSampleCount(val)) {
-                errors += "medianCount must be odd 3-31,";
-                hasErrors = true;
+                addError("medianSampleCount", "must_be_odd_3_31");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setMedianSampleCount(val)) appendSaveError("medianSampleCount");
+                    if (!settings.setMedianSampleCount(val)) saveFailed("medianSampleCount");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -230,12 +248,13 @@ void handleApi() {
         if (server.hasArg("medianSampleDelay")) {
             unsigned long val = server.arg("medianSampleDelay").toInt();
             if (!Validation::isValidMedianSampleDelay(val)) {
-                errors += "medianDelay must be 1-1000ms,";
-                hasErrors = true;
+                addError("medianSampleDelay", "invalid_range_1_1000");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setMedianSampleDelayMs(val)) appendSaveError("medianSampleDelay");
+                    if (!settings.setMedianSampleDelayMs(val)) saveFailed("medianSampleDelay");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -243,12 +262,13 @@ void handleApi() {
         if (server.hasArg("tsInterval")) {
             unsigned long val = server.arg("tsInterval").toInt();
             if (!Validation::isValidTsInterval(val)) {
-                errors += "tsInterval must be 15-3600sec,";
-                hasErrors = true;
+                addError("tsInterval", "invalid_range_15_3600");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setTsIntervalSeconds(val)) appendSaveError("tsInterval");
+                    if (!settings.setTsIntervalSeconds(val)) saveFailed("tsInterval");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -256,12 +276,13 @@ void handleApi() {
         if (server.hasArg("bfInterval")) {
             unsigned long val = server.arg("bfInterval").toInt();
             if (!Validation::isValidBfInterval(val)) {
-                errors += "bfInterval must be 5-1440min,";
-                hasErrors = true;
+                addError("bfInterval", "invalid_range_5_1440");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setBfIntervalMinutes(val)) appendSaveError("bfInterval");
+                    if (!settings.setBfIntervalMinutes(val)) saveFailed("bfInterval");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -269,12 +290,13 @@ void handleApi() {
         if (server.hasArg("offset")) {
             float val = server.arg("offset").toFloat();
             if (!Validation::isValidOffsetVoltage(val)) {
-                errors += "offset must be 0-4.5V,";
-                hasErrors = true;
+                addError("offset", "invalid_range_0_4_5");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setOffsetVoltage(val)) appendSaveError("offset");
+                    if (!settings.setOffsetVoltage(val)) saveFailed("offset");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -282,32 +304,36 @@ void handleApi() {
         if (server.hasArg("tempOffset")) {
             float val = server.arg("tempOffset").toFloat();
             if (!Validation::isValidTempOffset(val)) {
-                errors += "tempOffset must be -50 to +50C,";
-                hasErrors = true;
+                addError("tempOffset", "invalid_range_minus50_plus50");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setTempOffset(val)) appendSaveError("tempOffset");
+                    if (!settings.setTempOffset(val)) saveFailed("tempOffset");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
         
         if (server.hasArg("useTemp")) {
             if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                if (!settings.setUseTempSensor(server.arg("useTemp").toInt() == 1)) appendSaveError("useTemp");
+                if (!settings.setUseTempSensor(server.arg("useTemp").toInt() == 1)) saveFailed("useTemp");
                 xSemaphoreGive(runtimeState.settingsMutex);
+            } else {
+                lockFailed("settingsMutex");
             }
         }
         
         if (server.hasArg("tsApiKey")) {
             String val = server.arg("tsApiKey");
             if (!Validation::isValidApiKey(val)) {
-                errors += "tsApiKey too long,";
-                hasErrors = true;
+                addError("tsApiKey", "invalid_api_key");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setTsApiKey(val)) appendSaveError("tsApiKey");
+                    if (!settings.setTsApiKey(val)) saveFailed("tsApiKey");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -315,12 +341,13 @@ void handleApi() {
         if (server.hasArg("bfStreamId")) {
             String val = server.arg("bfStreamId");
             if (!Validation::isValidApiKey(val)) {
-                errors += "bfStreamId too long,";
-                hasErrors = true;
+                addError("bfStreamId", "invalid_stream_id");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setBfStreamId(val)) appendSaveError("bfStreamId");
+                    if (!settings.setBfStreamId(val)) saveFailed("bfStreamId");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -328,46 +355,54 @@ void handleApi() {
         if (server.hasArg("bfDeviceName")) {
             String val = server.arg("bfDeviceName");
             if (!Validation::isValidDeviceName(val)) {
-                errors += "bfDeviceName invalid,";
-                hasErrors = true;
+                addError("bfDeviceName", "invalid_device_name");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setBfDeviceName(val)) appendSaveError("bfDeviceName");
+                    if (!settings.setBfDeviceName(val)) saveFailed("bfDeviceName");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
         
         if (server.hasArg("tsEnabled")) {
             if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                if (!settings.setTsEnabled(server.arg("tsEnabled").toInt() == 1)) appendSaveError("tsEnabled");
+                if (!settings.setTsEnabled(server.arg("tsEnabled").toInt() == 1)) saveFailed("tsEnabled");
                 xSemaphoreGive(runtimeState.settingsMutex);
+            } else {
+                lockFailed("settingsMutex");
             }
         }
         
         if (server.hasArg("bfEnabled")) {
             if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                if (!settings.setBfEnabled(server.arg("bfEnabled").toInt() == 1)) appendSaveError("bfEnabled");
+                if (!settings.setBfEnabled(server.arg("bfEnabled").toInt() == 1)) saveFailed("bfEnabled");
                 xSemaphoreGive(runtimeState.settingsMutex);
+            } else {
+                lockFailed("settingsMutex");
             }
         }
         
         if (server.hasArg("httpEnabled")) {
             if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                if (!settings.setHttpEnabled(server.arg("httpEnabled").toInt() == 1)) appendSaveError("httpEnabled");
+                if (!settings.setHttpEnabled(server.arg("httpEnabled").toInt() == 1)) saveFailed("httpEnabled");
                 xSemaphoreGive(runtimeState.settingsMutex);
+            } else {
+                lockFailed("settingsMutex");
             }
         }
         
         if (server.hasArg("httpServer")) {
             String val = server.arg("httpServer");
             if (!Validation::isValidHttpServer(val)) {
-                errors += "httpServer too long,";
-                hasErrors = true;
+                addError("httpServer", "invalid_http_server");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setHttpServer(val)) appendSaveError("httpServer");
+                    if (!settings.setHttpServer(val)) saveFailed("httpServer");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -375,12 +410,13 @@ void handleApi() {
         if (server.hasArg("httpPath")) {
             String val = server.arg("httpPath");
             if (!Validation::isValidHttpPath(val)) {
-                errors += "httpPath invalid,";
-                hasErrors = true;
+                addError("httpPath", "invalid_http_path");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setHttpPath(val)) appendSaveError("httpPath");
+                    if (!settings.setHttpPath(val)) saveFailed("httpPath");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -388,12 +424,13 @@ void handleApi() {
         if (server.hasArg("httpBodyTemplate")) {
             String val = server.arg("httpBodyTemplate");
             if (!Validation::isValidHttpBodyTemplate(val)) {
-                errors += "httpBody too long,";
-                hasErrors = true;
+                addError("httpBodyTemplate", "invalid_http_body_template");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setHttpBodyTemplate(val)) appendSaveError("httpBodyTemplate");
+                    if (!settings.setHttpBodyTemplate(val)) saveFailed("httpBodyTemplate");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
@@ -401,22 +438,22 @@ void handleApi() {
         if (server.hasArg("httpInterval")) {
             unsigned long val = server.arg("httpInterval").toInt();
             if (!Validation::isValidCustomHttpInterval(val)) {
-                errors += "httpInterval must be 15-3600sec,";
-                hasErrors = true;
+                addError("httpInterval", "invalid_range_15_3600");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
-                    if (!settings.setHttpIntervalSeconds(val)) appendSaveError("httpInterval");
+                    if (!settings.setHttpIntervalSeconds(val)) saveFailed("httpInterval");
                     xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
                 }
             }
         }
         
         if (hasErrors) {
-            String response = "{\"success\":false,\"errors\":\"" + errors + "\"}";
+            String response = "{\"success\":false,\"errors\":[" + errorsJson + "]}";
             server.send(400, "application/json", response);
         } else {
-            server.sendHeader("Location", "/", true);
-            server.send(303, "text/plain", "OK");
+            server.send(200, "application/json", "{\"success\":true}");
         }
     }
 }
