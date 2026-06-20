@@ -8,6 +8,7 @@
 #include "CloudManager.h"
 #include "Settings.h"
 #include "RuntimeState.h"
+#include "debug.h"
 #include "device/DisplayManager.h"
 #include "device/SensorManager.h"
 #include "device/SolenoidController.h"
@@ -38,9 +39,9 @@ void setup() {
 
   // Инициализация mDNS
   if (!MDNS.begin(NetworkConfig::HOSTNAME)) {
-    Serial.println("mDNS ERROR");
+    DBG("mDNS ERROR");
   } else {
-    Serial.println("mDNS responder started: " + String(NetworkConfig::HOSTNAME) + ".local");
+    DBG("mDNS responder started: " + String(NetworkConfig::HOSTNAME) + ".local");
     MDNS.addService("http", "tcp", NetworkConfig::WEBSERVER_PORT);
   }
  
@@ -85,7 +86,7 @@ void setup() {
     TaskConfig::NETWORK_TASK_CORE
   );
 
-  Serial.println("\n--- Система запущена на двух ядрах ---");
+  DBG("\n--- Система запущена на двух ядрах ---");
 }
 
 void loop() {
@@ -170,7 +171,12 @@ void sensorTask(void *pvParameters) {
 
 // --- ЛОГИКА СЕТИ (Core 0) ---
 void networkTask(void *pvParameters) {
+  DBG("[NetworkTask] started");
   initCloud();
+  DBG("[NetworkTask] cloud providers initialized");
+
+  unsigned long lastWaitingLogMs = 0;
+  unsigned long lastSendSummaryLogMs = 0;
 
   for (;;) {
     float vLocal = 0.0, pLocal = 0.0, tLocal = 0.0;
@@ -208,11 +214,20 @@ void networkTask(void *pvParameters) {
 
     // Выполняем отправку только если данные уже были считаны сенсором
     if (ready) {
+        unsigned long now = millis();
+        if (lastSendSummaryLogMs == 0 || (now - lastSendSummaryLogMs) >= 15000UL) {
+          DBGF("[NetworkTask] send cycle: V=%.3f PSI=%.2f BAR=%.2f T=%.2f\n", vLocal, pLocal, pBar, tLocal);
+          lastSendSummaryLogMs = now;
+        }
         sendDataToThingSpeak(vLocal, pLocal, pBar, tLocal);
         sendDataToBrewfather(vLocal, pLocal, tLocal);
         sendDataViaCustomHTTP(vLocal, pLocal, pBar, tLocal);
     } else {
-        Serial.println("[Сетевая задача] Ожидание первых данных от сенсора...");
+        unsigned long now = millis();
+        if (lastWaitingLogMs == 0 || (now - lastWaitingLogMs) >= 10000UL) {
+          DBG("[NetworkTask] waiting for first sensor data...");
+          lastWaitingLogMs = now;
+        }
     }
     unsigned long updateIntervalMs = ControlConfig::DEFAULT_UPDATE_INTERVAL_MS;
     if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {

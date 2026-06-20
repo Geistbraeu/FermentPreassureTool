@@ -1,5 +1,6 @@
 #include "device/SensorManager.h"
 #include "config.h"
+#include "debug.h"
 #include <Adafruit_MAX31865.h>
 #include <esp_adc_cal.h>
 #include <freertos/FreeRTOS.h>
@@ -35,8 +36,7 @@ float SensorManager::readTemperature(bool isEnabled, float tempOffset, bool* isC
 
   uint16_t fault = tempSensor.readFault();
   if (fault) {
-    Serial.print("MAX31865 Fault: ");
-    Serial.println(fault);
+    DBGF("MAX31865 Fault: %u\n", fault);
     tempSensor.clearFault();
     if (isConnected != NULL) {
       *isConnected = false;
