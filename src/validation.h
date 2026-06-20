@@ -10,6 +10,17 @@
 
 namespace Validation {
   /**
+   * Trim whitespace from string
+   */
+  inline String trim(const String& val) {
+    int start = 0;
+    int end = val.length() - 1;
+    while (start <= end && isspace(val[start])) start++;
+    while (end >= start && isspace(val[end])) end--;
+    return val.substring(start, end + 1);
+  }
+
+  /**
    * Pressure threshold validation (PSI)
    * Valid range: 0.5 - 25.0 PSI
    */

@@ -113,7 +113,7 @@ void handleApi() {
         };
         
         if (server.hasArg("cmd")) {
-            String cmd = server.arg("cmd");
+            String cmd = Validation::trim(server.arg("cmd"));
             if (xSemaphoreTake(runtimeState.dataMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
                 if (cmd == "manual_on") {
                     runtimeState.manualOverride = true;
@@ -143,7 +143,7 @@ void handleApi() {
         }
         
         if (server.hasArg("devName")) {
-            String newDevName = server.arg("devName");
+            String newDevName = Validation::trim(server.arg("devName"));
             if (!Validation::isValidHostname(newDevName)) {
                 addError("devName", "invalid_hostname");
             } else {
@@ -288,7 +288,7 @@ void handleApi() {
         }
         
         if (server.hasArg("tsApiKey")) {
-            String val = server.arg("tsApiKey");
+            String val = Validation::trim(server.arg("tsApiKey"));
             if (!Validation::isValidApiKey(val)) {
                 addError("tsApiKey", "invalid_api_key");
             } else {
@@ -302,7 +302,7 @@ void handleApi() {
         }
         
         if (server.hasArg("bfStreamId")) {
-            String val = server.arg("bfStreamId");
+            String val = Validation::trim(server.arg("bfStreamId"));
             if (!Validation::isValidApiKey(val)) {
                 addError("bfStreamId", "invalid_stream_id");
             } else {
@@ -316,7 +316,7 @@ void handleApi() {
         }
         
         if (server.hasArg("bfDeviceName")) {
-            String val = server.arg("bfDeviceName");
+            String val = Validation::trim(server.arg("bfDeviceName"));
             if (!Validation::isValidDeviceName(val)) {
                 addError("bfDeviceName", "invalid_device_name");
             } else {
@@ -357,7 +357,7 @@ void handleApi() {
         }
         
         if (server.hasArg("httpServer")) {
-            String val = server.arg("httpServer");
+            String val = Validation::trim(server.arg("httpServer"));
             if (!Validation::isValidHttpServer(val)) {
                 addError("httpServer", "invalid_http_server");
             } else {
@@ -371,7 +371,7 @@ void handleApi() {
         }
         
         if (server.hasArg("httpPath")) {
-            String val = server.arg("httpPath");
+            String val = Validation::trim(server.arg("httpPath"));
             if (!Validation::isValidHttpPath(val)) {
                 addError("httpPath", "invalid_http_path");
             } else {
