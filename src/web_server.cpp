@@ -136,7 +136,7 @@ void handleApi() {
         if (server.hasArg("pressure")) {
             float val = server.arg("pressure").toFloat();
             if (!Validation::isValidPressure(val)) {
-                addError("pressure", "invalid_range_0_5_25_0");
+                addError("pressure", "invalid_range_0_5_34_0");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
                     if (!settings.setMaxPressureThreshold(val)) saveFailed("pressure");
@@ -256,7 +256,7 @@ void handleApi() {
         if (server.hasArg("bfInterval")) {
             unsigned long val = server.arg("bfInterval").toInt();
             if (!Validation::isValidBfInterval(val)) {
-                addError("bfInterval", "invalid_range_5_1440");
+                addError("bfInterval", "invalid_range_15_1440");
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
                     if (!settings.setBfIntervalMinutes(val)) saveFailed("bfInterval");

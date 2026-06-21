@@ -22,10 +22,10 @@ namespace Validation {
 
   /**
    * Pressure threshold validation (PSI)
-   * Valid range: 0.5 - 25.0 PSI
+   * Valid range: 0.5 - 34.0 PSI
    */
   inline bool isValidPressure(float val) {
-    return val >= 0.5f && val <= 25.0f;
+    return val >= 0.5f && val <= 34.0f;
   }
 
   /**
@@ -78,10 +78,10 @@ namespace Validation {
 
   /**
    * Brewfather interval validation (minutes)
-   * Valid range: 5 - 1440 minutes (5 min - 24 hours)
+   * Valid range: 15 - 1440 minutes (15 min - 24 hours)
    */
   inline bool isValidBfInterval(unsigned long val) {
-    return val >= 5 && val <= 1440;
+    return val >= 15 && val <= 1440;
   }
 
   /**
