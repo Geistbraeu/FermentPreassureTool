@@ -50,6 +50,7 @@ static SettingsSnapshot readSettingsSnapshot() {
         snapshot.tsApiKey = settings.tsApiKey;
         snapshot.bfStreamId = settings.bfStreamId;
         snapshot.bfDeviceName = settings.bfDeviceName;
+        snapshot.bfTempSource = settings.bfTempSource;
         snapshot.tsEnabled = settings.tsEnabled;
         snapshot.bfEnabled = settings.bfEnabled;
         snapshot.httpEnabled = settings.httpEnabled;
@@ -339,6 +340,20 @@ void handleApi() {
             } else {
                 if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
                     if (!settings.setBfDeviceName(val)) saveFailed("bfDeviceName");
+                    xSemaphoreGive(runtimeState.settingsMutex);
+                } else {
+                    lockFailed("settingsMutex");
+                }
+            }
+        }
+
+        if (server.hasArg("bfTempSource")) {
+            int val = server.arg("bfTempSource").toInt();
+            if (!Validation::isValidBfTempSource(val)) {
+                addError("bfTempSource", "must_be_0_or_1");
+            } else {
+                if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
+                    if (!settings.setBfTempSource(val)) saveFailed("bfTempSource");
                     xSemaphoreGive(runtimeState.settingsMutex);
                 } else {
                     lockFailed("settingsMutex");

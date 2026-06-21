@@ -29,6 +29,7 @@ struct SettingsSnapshot {
     String tsApiKey;
     String bfStreamId;
     String bfDeviceName;
+    int bfTempSource = 0;
     bool tsEnabled = false;
     bool bfEnabled = false;
     bool httpEnabled = false;

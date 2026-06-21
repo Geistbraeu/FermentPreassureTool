@@ -5,6 +5,9 @@
 
 class Settings {
 public:
+    static constexpr int BF_TEMP_SOURCE_FERMENTER = 0;
+    static constexpr int BF_TEMP_SOURCE_ROOM = 1;
+
     float maxPressureThreshold;
     int pressureUnit;
     float hysteresis;
@@ -21,6 +24,7 @@ public:
     String tsApiKey;
     String bfStreamId;
     String bfDeviceName;
+    int bfTempSource;
 
     // Cloud enable flags
     bool tsEnabled;
@@ -50,6 +54,7 @@ public:
     bool setTsApiKey(const String& val);
     bool setBfStreamId(const String& val);
     bool setBfDeviceName(const String& val);
+    bool setBfTempSource(int val);
     bool setTsEnabled(bool val);
     bool setBfEnabled(bool val);
     bool setHttpEnabled(bool val);

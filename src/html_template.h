@@ -549,6 +549,20 @@ String getHtml(const RuntimeSnapshot& runtime, const SettingsSnapshot& cfg) {
         </div>
 
         <div class="setting-group">
+          <label class="setting-label">Temperature Field</label>
+          <div class="setting-row">
+            <select name="bfTempSource">
+              <option value="0")rawhtml";
+    html += (cfg.bfTempSource == 0 ? " selected" : "");
+    html += R"rawhtml(>Fermenter (temp)</option>
+              <option value="1")rawhtml";
+    html += (cfg.bfTempSource == 1 ? " selected" : "");
+    html += R"rawhtml(>Room (ext_temp)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-group">
           <label class="setting-label">Send Interval (minutes, min 15)</label>
           <div class="setting-row">
             <input type="number" name="bfInterval" value=")rawhtml";

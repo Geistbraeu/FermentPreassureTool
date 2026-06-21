@@ -73,6 +73,7 @@ void Settings::load() {
     tsApiKey = prefs.getString("tsApiKey", "");
     bfStreamId = prefs.getString("bfStreamId", "");
     bfDeviceName = prefs.getString("bfDevName", "Pressure_Sensor");
+    bfTempSource = prefs.getInt("bfTempSrc", Settings::BF_TEMP_SOURCE_FERMENTER);
     tsEnabled = prefs.getBool("tsEnabled", true);
     bfEnabled = prefs.getBool("bfEnabled", true);
     httpEnabled = prefs.getBool("httpEnabled", false);
@@ -194,6 +195,13 @@ bool Settings::setBfDeviceName(const String& val) {
     if (bfDeviceName == val) return true;
     bfDeviceName = val;
     return saveString("bfDevName", val);
+}
+
+bool Settings::setBfTempSource(int val) {
+    if (val != Settings::BF_TEMP_SOURCE_FERMENTER && val != Settings::BF_TEMP_SOURCE_ROOM) return false;
+    if (bfTempSource == val) return true;
+    bfTempSource = val;
+    return saveInt("bfTempSrc", val);
 }
 
 bool Settings::setTsEnabled(bool val) {

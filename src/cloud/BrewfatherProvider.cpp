@@ -15,6 +15,7 @@ void BrewfatherProvider::init() {
 void BrewfatherProvider::send(const CloudPayload& payload) {
   bool bfEnabled = false;
   bool useTempSensor = true;
+  int bfTempSource = Settings::BF_TEMP_SOURCE_FERMENTER;
   unsigned long bfIntervalMinutes = CloudConfig::BREWFATHER_DEFAULT_INTERVAL_MIN;
   String bfStreamId;
   String bfDeviceName;
@@ -22,6 +23,7 @@ void BrewfatherProvider::send(const CloudPayload& payload) {
   if (xSemaphoreTake(runtimeState.settingsMutex, TaskConfig::MUTEX_TIMEOUT_TICKS) == pdTRUE) {
     bfEnabled = settings.bfEnabled;
     useTempSensor = settings.useTempSensor;
+    bfTempSource = settings.bfTempSource;
     bfIntervalMinutes = settings.bfIntervalMinutes;
     bfStreamId = settings.bfStreamId;
     bfDeviceName = settings.bfDeviceName;
@@ -50,7 +52,11 @@ void BrewfatherProvider::send(const CloudPayload& payload) {
     jsonBody += "\"pressure\":" + String(payload.pressurePsi, 2) + ",";
     jsonBody += "\"pressure_unit\":\"PSI\",";
     if (useTempSensor) {
-      jsonBody += "\"temp\":" + String(payload.temperatureC, 2) + ",";
+      if (bfTempSource == Settings::BF_TEMP_SOURCE_ROOM) {
+        jsonBody += "\"ext_temp\":" + String(payload.temperatureC, 2) + ",";
+      } else {
+        jsonBody += "\"temp\":" + String(payload.temperatureC, 2) + ",";
+      }
       jsonBody += "\"temp_unit\":\"C\",";
     }
     jsonBody += "\"battery\":" + String(payload.voltage, 2) + ",";

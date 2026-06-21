@@ -85,6 +85,14 @@ namespace Validation {
   }
 
   /**
+   * Brewfather temperature source validation
+   * Valid: 0 (Fermenter) or 1 (Room / ext_temp)
+   */
+  inline bool isValidBfTempSource(int val) {
+    return val == 0 || val == 1;
+  }
+
+  /**
    * Offset voltage validation (Volts)
    * Valid range: 0.0 - 4.5 V
    */
